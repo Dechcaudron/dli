@@ -1,0 +1,9 @@
+{
+	"name": "dli",
+	"authors": [
+		"Héctor Barreras Almarcha @Dechcaudron"
+	],
+	"description": "A Command Line Interface library for D",
+	"copyright": "Copyright © 2017, Dechcaudron",
+	"license": "GPL3.0"
+}
