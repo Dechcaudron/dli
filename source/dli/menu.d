@@ -1,6 +1,7 @@
 module dli.menu;
 
 public import dli.menu_item;
+import dli.i_menu_item;
 public import dli.welcome_msg_display_scenario;
 
 import std.exception;
@@ -16,39 +17,59 @@ public abstract class Menu(inputStreamT, outputStreamT)
     private string welcomeMsgEnding = "\n"; // Ending for the welcome message, acts as separator with the menu items
     private WelcomeMsgDisplayScenario welcomeMsgDisplayScenario; // Scenario when the welcome message should be displayed
 
-    private MenuStatus status = MenuStatus.Stopped;
+    private Status _status = Status.Stopped;
+
+    protected alias exitMenuItemT = MenuItem!(void delegate() pure nothrow @nogc @safe);
+
+    @property
+    protected Status status()
+    {
+        return _status;
+    }
 
     // Starts the menu. This method can only be called if the menu is stopped.
     public void run()
     {
-        enforce(status == MenuStatus.Stopped);
+        enforce(_status == Status.Stopped);
         try
         {
-            status = MenuStatus.Running;
+            _status = Status.Starting;
+            addExitMenuItem(createMenuItem("Exit", {_status = Status.Stopping;}));
 
-            printWelcomeMsgAndEnding();
-            printItems();
-            promptForSelection();
+            _status = Status.Running;
+
+            while(_status == Status.Running)
+            {
+                printWelcomeMsg();
+                printEnabledItems();
+                awaitAndExecuteUserInteraction();
+            }
         }
         finally
         {
-            status = MenuStatus.Stopped;
+            _status = Status.Stopping;
+            removeExitMenuItem();
+            _status = Status.Stopped;
         }
     }
 
-    private void promptForSelection()
+    private void awaitAndExecuteUserInteraction()
     {
-        parseUserSelection(inputStream.readln()[0..$-1]); // Important to remove EOL character
+        string cleansedUserInput = inputStream.readln()[0..$-1]; // Important to remove EOL character
+        auto menuItem = getMenuItemFromUserInput(cleansedUserInput);
+        menuItem.execute();
     }
 
-    private void printWelcomeMsgAndEnding()
+    private void printWelcomeMsg()
     {
         outputStream.write(welcomeMsg);
         outputStream.write(welcomeMsgEnding);
     }
 
-    abstract protected void printItems();
-    abstract protected void parseUserSelection(string input);
+    abstract protected void printEnabledItems();
+    abstract protected IMenuItem getMenuItemFromUserInput(string input);
+    abstract protected void addExitMenuItem(exitMenuItemT exitMenuItem);
+    abstract protected void removeExitMenuItem();
 
     public void setWelcomeMsg(string msg,
             WelcomeMsgDisplayScenario displayScenario = WelcomeMsgDisplayScenario.Always)
@@ -61,11 +82,12 @@ public abstract class Menu(inputStreamT, outputStreamT)
         welcomeMsg = msg;
         welcomeMsgDisplayScenario = displayScenario;
     }
-}
 
-private enum MenuStatus
-{
-    Stopped,
-    Running,
-    Paused
+    protected enum Status
+    {
+        Stopping,
+        Stopped,
+        Starting,
+        Running
+    }
 }
