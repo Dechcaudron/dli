@@ -17,15 +17,23 @@ public abstract class Menu(inputStreamT, outputStreamT)
     private string welcomeMsgEnding = "\n"; // Ending for the welcome message, acts as separator with the menu items
     private WelcomeMsgDisplayScenario welcomeMsgDisplayScenario; // Scenario when the welcome message should be displayed
 
+    private string promptMsg = "> "; // String to be printed before asking the user for input
+    private string afterExecutionMsg = "\n"; // String to be printed after any menu item is executed. Generally, you will want this to be EOL.
+    private string exitMsg = "Exiting menu...";
+
     private Status _status = Status.Stopped;
 
-    protected alias exitMenuItemT = MenuItem!(void delegate() pure nothrow @nogc @safe);
+    protected alias exitMenuItemT = MenuItem!(void delegate() @safe);
 
     @property
     protected Status status()
     {
         return _status;
     }
+
+    mixin(generateMsgSetterProperty(__traits(identifier, welcomeMsg)));
+    mixin(generateMsgSetterProperty(__traits(identifier, promptMsg)));
+    mixin(generateMsgSetterProperty(__traits(identifier, exitMsg)));
 
     // Starts the menu. This method can only be called if the menu is stopped.
     public void run()
@@ -34,20 +42,29 @@ public abstract class Menu(inputStreamT, outputStreamT)
         try
         {
             _status = Status.Starting;
-            addExitMenuItem(createMenuItem("Exit", {_status = Status.Stopping;}));
+            /* Before actually starting the menu, we need to provide the user with a way to
+               exit the menu. We create an ad hoc MenuItem for this purpose and add it here */
+            addExitMenuItem(createMenuItem("Exit", 
+                {
+                    outputStream.writeln(exitMsg);
+                    _status = Status.Stopping;}));
 
             _status = Status.Running;
 
             while(_status == Status.Running)
             {
                 printWelcomeMsg();
+
                 printEnabledItems();
+                outputStream.write(promptMsg);
                 awaitAndExecuteUserInteraction();
+                outputStream.write(afterExecutionMsg);
             }
         }
         finally
         {
             _status = Status.Stopping;
+            // In order to leave things as they were prior to calling this method, the ad hoc MenuItem used to exit the menu is removed
             removeExitMenuItem();
             _status = Status.Stopped;
         }
@@ -55,7 +72,11 @@ public abstract class Menu(inputStreamT, outputStreamT)
 
     private void awaitAndExecuteUserInteraction()
     {
-        string cleansedUserInput = inputStream.readln()[0..$-1]; // Important to remove EOL character
+        import std.string : strip;
+
+        // Note that we are calling strip here to remove the EOL chars, but at some point we may want to allow
+        // someone to type leading or trailing whitespaces which they don't want removed. This will do for now.
+        string cleansedUserInput = strip(inputStream.readln());
         auto menuItem = getMenuItemFromUserInput(cleansedUserInput);
         menuItem.execute();
     }
@@ -71,18 +92,6 @@ public abstract class Menu(inputStreamT, outputStreamT)
     abstract protected void addExitMenuItem(exitMenuItemT exitMenuItem);
     abstract protected void removeExitMenuItem();
 
-    public void setWelcomeMsg(string msg,
-            WelcomeMsgDisplayScenario displayScenario = WelcomeMsgDisplayScenario.Always)
-    in
-    {
-        assert(msg !is null);
-    }
-    body
-    {
-        welcomeMsg = msg;
-        welcomeMsgDisplayScenario = displayScenario;
-    }
-
     protected enum Status
     {
         Stopping,
@@ -91,3 +100,23 @@ public abstract class Menu(inputStreamT, outputStreamT)
         Running
     }
 }
+
+// Helper function to generate setters via mixins
+private string generateMsgSetterProperty(string fieldName) pure
+{
+    import std.format : format;
+    import std.uni : toUpper;
+    import std.conv : to;
+
+    string capitalizedFieldName = to!string(toUpper(fieldName[0])) ~ fieldName[1..$];
+
+    return format("@property
+                   public void %s(string s)
+                   in{ assert(s !is null);}
+                   body
+                   {
+                       enforce(_status == Status.Stopped);
+                       %s = s;
+                   }", capitalizedFieldName, fieldName);
+}
+

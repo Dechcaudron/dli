@@ -8,7 +8,8 @@ import std.stdio;
 void main()
 {
 	auto menu = makeIndexMenu();
-	menu.setWelcomeMsg("This is our menu:");
+	menu.WelcomeMsg = "This is our menu:";
+	menu.ExitMsg = "Goodbye!";
 
 	auto item1 = createMenuItem("Item 1", {writeln("Hello from item 1");});
 	auto item2 = createMenuItem("Item 2", {writeln("Hello from item 2");});
