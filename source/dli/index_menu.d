@@ -69,14 +69,9 @@ public class IndexMenu(inputStreamT, outputStreamT) : Menu!(inputStreamT, output
         foreach(size_t menuItemIndex; sortedKeys)
         {
             auto item = menuItems[menuItemIndex];
-            printItemIfEnabled(menuItemIndex, item);
+            if (item.enabled)
+                printItem(to!string(menuItemIndex), item.text);
         }
-    }
-
-    protected void printItemIfEnabled(size_t itemIndex, IMenuItem item)
-    {
-        if(item.enabled)
-            outputStream.writefln("%s - %s", itemIndex, item.text);
     }
 
     protected override IMenuItem getMenuItemFromUserInput(string input)

@@ -1,8 +1,9 @@
 module dli.menu;
 
 public import dli.menu_item;
+public import dli.display_scenario;
 import dli.i_menu_item;
-public import dli.welcome_msg_display_scenario;
+import dli.exceptions.invalid_item_exception;
 
 import std.exception;
 import std.range.interfaces;
@@ -13,13 +14,17 @@ public abstract class Menu(inputStreamT, outputStreamT)
     protected inputStreamT inputStream;
     protected outputStreamT outputStream;
 
-    private string welcomeMsg; // Welcome message for this menu
-    private string welcomeMsgEnding = "\n"; // Ending for the welcome message, acts as separator with the menu items
-    private WelcomeMsgDisplayScenario welcomeMsgDisplayScenario; // Scenario when the welcome message should be displayed
+    private string _welcomeMsg; // Welcome message for this menu
+    private DisplayScenario _welcomeMsgDisplayScenario; // Scenario when the welcome message should be displayed
 
-    private string promptMsg = "> "; // String to be printed before asking the user for input
-    private string afterExecutionMsg = "\n"; // String to be printed after any menu item is executed. Generally, you will want this to be EOL.
-    private string exitMsg = "Exiting menu...";
+    private string _promptMsg = "> "; // String to be printed before asking the user for input
+    private string _onItemExecutedMsg = "\n"; // String to be printed after any menu item is executed. Generally, you will want this to be EOL.
+    private string _onMenuExitMsg = "Exiting menu...";
+    private string _onInvalidItemSelectedMsg = "Please, select a valid item from the list.";
+
+    public static enum printItemIdKeyword = "_$_ID_$_"; /// String to be used in place of the IMenuItem identifier in itemPrintFormat
+    public static enum printItemTextKeyword = "_$_TEXT_$_"; /// String to be used in place of the IMenuItem text in itemPrintFormat
+    private string _itemPrintFormat = printItemIdKeyword ~ " - " ~ printItemTextKeyword;
 
     private Status _status = Status.Stopped;
 
@@ -31,11 +36,14 @@ public abstract class Menu(inputStreamT, outputStreamT)
         return _status;
     }
 
-    mixin(generateMsgSetterProperty(__traits(identifier, welcomeMsg)));
-    mixin(generateMsgSetterProperty(__traits(identifier, promptMsg)));
-    mixin(generateMsgSetterProperty(__traits(identifier, exitMsg)));
+    mixin(generateMenuCustomizingSetter!string(__traits(identifier, _welcomeMsg)));
+    mixin(generateMenuCustomizingSetter!DisplayScenario(__traits(identifier, _welcomeMsgDisplayScenario)));
+    mixin(generateMenuCustomizingSetter!string(__traits(identifier, _promptMsg)));
+    mixin(generateMenuCustomizingSetter!string(__traits(identifier, _onMenuExitMsg)));
+    mixin(generateMenuCustomizingSetter!string(__traits(identifier, _onInvalidItemSelectedMsg)));
+    mixin(generateMenuCustomizingSetter!string(__traits(identifier, _itemPrintFormat)));
 
-    // Starts the menu. This method can only be called if the menu is stopped.
+    /// Starts the menu. This method can only be called if the menu is stopped.
     public void run()
     {
         enforce(_status == Status.Stopped);
@@ -46,7 +54,7 @@ public abstract class Menu(inputStreamT, outputStreamT)
                exit the menu. We create an ad hoc MenuItem for this purpose and add it here */
             addExitMenuItem(createMenuItem("Exit", 
                 {
-                    outputStream.writeln(exitMsg);
+                    outputStream.writeln(_onMenuExitMsg);
                     _status = Status.Stopping;}));
 
             _status = Status.Running;
@@ -56,9 +64,16 @@ public abstract class Menu(inputStreamT, outputStreamT)
                 printWelcomeMsg();
 
                 printEnabledItems();
-                outputStream.write(promptMsg);
-                awaitAndExecuteUserInteraction();
-                outputStream.write(afterExecutionMsg);
+                outputStream.write(_promptMsg);
+                try
+                {
+                    awaitAndExecuteUserInteraction();
+                }
+                catch(InvalidItemException e)
+                {
+                    outputStream.writeln(_onInvalidItemSelectedMsg);
+                }
+                outputStream.write(_onItemExecutedMsg);
             }
         }
         finally
@@ -68,6 +83,15 @@ public abstract class Menu(inputStreamT, outputStreamT)
             removeExitMenuItem();
             _status = Status.Stopped;
         }
+    }
+
+    protected void printItem(string id, string itemText)
+    {
+        import std.string : replace;
+
+        string toBePrinted = _itemPrintFormat.replace(printItemIdKeyword, id).
+                             replace(printItemTextKeyword, itemText);
+        outputStream.writeln(toBePrinted);
     }
 
     private void awaitAndExecuteUserInteraction()
@@ -83,8 +107,7 @@ public abstract class Menu(inputStreamT, outputStreamT)
 
     private void printWelcomeMsg()
     {
-        outputStream.write(welcomeMsg);
-        outputStream.write(welcomeMsgEnding);
+        outputStream.writeln(_welcomeMsg);
     }
 
     abstract protected void printEnabledItems();
@@ -102,21 +125,26 @@ public abstract class Menu(inputStreamT, outputStreamT)
 }
 
 // Helper function to generate setters via mixins
-private string generateMsgSetterProperty(string fieldName) pure
+private string generateMenuCustomizingSetter(T)(string fieldName) pure
+in
+{
+    assert(fieldName[0] == '_');
+}
+body
 {
     import std.format : format;
     import std.uni : toUpper;
     import std.conv : to;
 
-    string capitalizedFieldName = to!string(toUpper(fieldName[0])) ~ fieldName[1..$];
+    string propertyIdentifier = fieldName[1..$];
 
     return format("@property
-                   public void %s(string s)
-                   in{ assert(s !is null);}
+                   public void %s(%s a)
                    body
                    {
                        enforce(_status == Status.Stopped);
-                       %s = s;
-                   }", capitalizedFieldName, fieldName);
+
+                       %s = a;
+                   }", propertyIdentifier, T.stringof, fieldName);
 }
 
