@@ -4,6 +4,23 @@
 		"Héctor Barreras Almarcha @Dechcaudron"
 	],
 	"description": "A Command Line Interface library for D",
-	"copyright": "Copyright © 2017, Dechcaudron",
-	"license": "GPL3.0"
+	"copyright": "Copyright © 2017, Héctor Barreras Almarcha",
+	"license": "GPL-3.0",
+	"targetPath": "bin",
+	"configurations": [
+        { 
+			"name": "executable",
+			"targetType": "executable"
+		},
+        {
+            "name": "unittest",
+            "targetType": "executable",
+            "preBuildCommands": ["dub run unit-threaded -c gen_ut_main -- -f bin/ut.d"],
+            "mainSourceFile": "bin/ut.d",
+            "excludedSourceFiles": ["src/app.d"],
+            "dependencies": {
+                "unit-threaded": "~>0.7.11"
+            }
+		}
+	]
 }
