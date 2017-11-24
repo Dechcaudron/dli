@@ -46,7 +46,7 @@ public class IndexMenu(inputStreamT, outputStreamT) : Menu!(inputStreamT, output
         highestMenuItemIndex = 0;
     }
 
-    protected override void addExitMenuItem(exitMenuItemT exitMenuItem)
+    protected override void addExitMenuItem(IMenuItem exitMenuItem)
     {
         enforce(status is Status.Starting);
 
@@ -90,7 +90,7 @@ public class IndexMenu(inputStreamT, outputStreamT) : Menu!(inputStreamT, output
     }
 }
 
-public auto makeIndexMenu(inputStreamT, outputStreamT)(inputStreamT inStream = stdin, outputStreamT outStream = stdout)
+public auto createIndexMenu(inputStreamT, outputStreamT)(inputStreamT inStream = stdin, outputStreamT outStream = stdout)
 {
     return new IndexMenu!(inputStreamT, outputStreamT)(inStream, outStream);
 }

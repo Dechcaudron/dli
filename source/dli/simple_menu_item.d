@@ -1,8 +1,8 @@
-module dli.menu_item;
+module dli.simple_menu_item;
 
 import dli.i_menu_item;
 
-public class MenuItem(actionT) : IMenuItem
+public class SimpleMenuItem(actionT) : IMenuItem
 {
     private string _text;
     private bool _enabled;
@@ -39,7 +39,7 @@ public class MenuItem(actionT) : IMenuItem
     }
 }
 
-public auto createMenuItem(actionT)(string text, actionT action, bool enabled = true)
+public auto createSimpleMenuItem(actionT)(string text, actionT action, bool enabled = true)
 {
-    return new MenuItem!actionT(text, action, enabled);
+    return new SimpleMenuItem!actionT(text, action, enabled);
 }

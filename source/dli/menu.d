@@ -1,8 +1,9 @@
 module dli.menu;
 
-public import dli.menu_item;
+public import dli.simple_menu_item;
 public import dli.display_scenario;
 import dli.i_menu_item;
+import dli.simple_menu_item;
 import dli.exceptions.invalid_item_exception;
 
 import std.exception;
@@ -24,11 +25,9 @@ public abstract class Menu(inputStreamT, outputStreamT)
 
     public static enum printItemIdKeyword = "_$_ID_$_"; /// String to be used in place of the IMenuItem identifier in itemPrintFormat
     public static enum printItemTextKeyword = "_$_TEXT_$_"; /// String to be used in place of the IMenuItem text in itemPrintFormat
-    private string _itemPrintFormat = printItemIdKeyword ~ " - " ~ printItemTextKeyword;
+    private string _itemPrintFormat = printItemIdKeyword ~ " - " ~ printItemTextKeyword; /// Stores the format in which menu items are printed to the output stream
 
     private Status _status = Status.Stopped;
-
-    protected alias exitMenuItemT = MenuItem!(void delegate() @safe);
 
     @property
     protected Status status()
@@ -52,7 +51,7 @@ public abstract class Menu(inputStreamT, outputStreamT)
             _status = Status.Starting;
             /* Before actually starting the menu, we need to provide the user with a way to
                exit the menu. We create an ad hoc MenuItem for this purpose and add it here */
-            addExitMenuItem(createMenuItem("Exit", 
+            addExitMenuItem(createSimpleMenuItem("Exit", 
                 {
                     outputStream.writeln(_onMenuExitMsg);
                     _status = Status.Stopping;}));
@@ -112,7 +111,7 @@ public abstract class Menu(inputStreamT, outputStreamT)
 
     abstract protected void printEnabledItems();
     abstract protected IMenuItem getMenuItemFromUserInput(string input);
-    abstract protected void addExitMenuItem(exitMenuItemT exitMenuItem);
+    abstract protected void addExitMenuItem(IMenuItem exitMenuItem);
     abstract protected void removeExitMenuItem();
 
     protected enum Status
