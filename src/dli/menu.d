@@ -10,7 +10,7 @@ import std.exception;
 import std.range.interfaces;
 import std.range.primitives;
 
-public abstract class Menu(inputStreamT, outputStreamT)
+public abstract class Menu(inputStreamT, outputStreamT, keyT)
 {
     protected inputStreamT inputStream;
     protected outputStreamT outputStream;
@@ -96,11 +96,27 @@ public abstract class Menu(inputStreamT, outputStreamT)
     private void awaitAndExecuteUserInteraction()
     {
         import std.string : strip;
+        import std.format : format;
+        import std.conv : to, ConvException;
 
         // Note that we are calling strip here to remove the EOL chars, but at some point we may want to allow
         // someone to type leading or trailing whitespaces which they don't want removed. This will do for now.
-        string cleansedUserInput = strip(inputStream.readln());
-        auto menuItem = getMenuItemFromUserInput(cleansedUserInput);
+        string cleansedUserInput = inputStream.readln().strip();
+        keyT menuItemKey;
+        try
+        {
+            menuItemKey = to!keyT(cleansedUserInput);
+        }
+        catch(ConvException e)
+        {
+            throw new InvalidItemException(format!("Cannot convert user input '%s' " ~
+                "into key type %s")(cleansedUserInput, keyT.stringof));
+        }
+        
+        IMenuItem menuItem = getMenuItem(menuItemKey);
+        enforce!InvalidItemException(menuItem.enabled, format!("User tried to select disabled " ~
+                "menu item with key %s")(menuItemKey));
+        
         menuItem.execute();
     }
 
@@ -110,7 +126,7 @@ public abstract class Menu(inputStreamT, outputStreamT)
     }
 
     abstract protected void printEnabledItems();
-    abstract protected IMenuItem getMenuItemFromUserInput(string input);
+    abstract protected IMenuItem getMenuItem(keyT menuItemKey);
     abstract protected void addExitMenuItem(IMenuItem exitMenuItem);
     abstract protected void removeExitMenuItem();
 

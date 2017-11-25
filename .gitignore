@@ -1,3 +1,6 @@
+# Results of compilation
+bin/
+
 # Compiled Object files
 *.o
 *.obj

@@ -10,7 +10,7 @@ import dli.i_menu_item;
 
 import std.typecons;
 
-public class IndexMenu(inputStreamT, outputStreamT) : Menu!(inputStreamT, outputStreamT)
+public class IndexMenu(inputStreamT, outputStreamT) : Menu!(inputStreamT, outputStreamT, size_t)
 {
     private IMenuItem[size_t] menuItems;
     private size_t highestMenuItemIndex;
@@ -74,19 +74,13 @@ public class IndexMenu(inputStreamT, outputStreamT) : Menu!(inputStreamT, output
         }
     }
 
-    protected override IMenuItem getMenuItemFromUserInput(string input)
-    in
+    protected override IMenuItem getMenuItem(size_t key)
     {
-        assert(input !is null);
-    }
-    body
-    {
-        size_t chosenItemIndex = to!size_t(input);
+        import std.format : format;
+        enforce!InvalidItemException(key in menuItems, format!("Tried to retrieve " ~
+                "unexisting menu item with key %s")(key));
 
-        enforce!InvalidItemException(chosenItemIndex in menuItems &&
-                menuItems[chosenItemIndex].enabled);
-
-        return menuItems[chosenItemIndex];
+        return menuItems[key];
     }
 }
 

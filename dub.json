@@ -10,8 +10,7 @@
 	"configurations": [
         { 
 			"name": "executable",
-			"targetType": "executable",
-			"targetName": "dli_demo.exe"
+			"targetType": "executable"
 		},
         {
             "name": "unittest",
