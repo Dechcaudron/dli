@@ -45,6 +45,8 @@ public auto createSimpleMenuItem(actionT)(string text, actionT action, bool enab
     return new SimpleMenuItem!actionT(text, action, enabled);
 }
 
+// TESTS
+
 @("Test SimpleMenuItem can call functions with no arguments")
 unittest
 {
