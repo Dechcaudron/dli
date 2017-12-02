@@ -113,7 +113,7 @@ unittest
 {
     import unit_threaded : shouldEqual;
 
-    import core.thread : ThreadGroup, Thread;
+    import core.thread : ThreadGroup;
     import core.atomic : atomicOp;
 
 
@@ -121,23 +121,22 @@ unittest
     immutable string sampleLine = "This is a sample line\n";
 
     ThreadGroup threads = new ThreadGroup();
-    enum lines = 10;
+    enum lines = 20;
     shared size_t linesRead;
 
     for(size_t i; i < lines; i++)
     {
-        threads.add(new Thread({
-            stream.readln().shouldEqual(sampleLine);
-            linesRead.atomicOp!"+="(1);
-            }));
+        threads.create(
+            {
+                stream.readln().shouldEqual(sampleLine);
+                linesRead.atomicOp!"+="(1);
+            });
 
-        threads.add(new Thread({
-            stream.appendContent(sampleLine);
-            }));
+        threads.create(
+            {
+                stream.appendContent(sampleLine);
+            });
     }
-
-    foreach(Thread t; threads)
-        t.start();
 
     threads.joinAll();
 
