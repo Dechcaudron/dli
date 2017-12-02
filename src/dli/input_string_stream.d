@@ -1,12 +1,13 @@
-module dli.input_string_stream;
+module dli.output_string_stream;
+
+import core.sync.semaphore;
 
 public shared class InputStringStream
 {
-    private string _content = "";
-    immutable string lineTerminator;
+    private string _content ="";
 
     @property
-    public string content()
+    public string content() const
     out(s)
     {
         assert(s !is null);
@@ -16,6 +17,10 @@ public shared class InputStringStream
         return _content;
     }
 
+    private Semaphore linesAvailableSemaphore;
+
+    public immutable string lineTerminator;
+    
     public this(string content = "", string lineTerminator = "\n")
     in
     {
@@ -24,83 +29,116 @@ public shared class InputStringStream
     }
     body
     {
+        linesAvailableSemaphore = cast(shared) new Semaphore();
         this.lineTerminator = lineTerminator;
-        write(content);
+
+        appendContent(content);
     }
 
-    public final void writeln(string s)
+    public final void appendContent(string content)
     in
     {
-        assert(s !is null);
+        assert(content !is null);
     }
     body
     {
-        write(s ~ lineTerminator);
+        import std.string : count;
+
+        immutable size_t linesInContent = content.count(lineTerminator);
+
+        synchronized(this)
+            _content ~= content;
+
+        for (size_t i; i < linesInContent; i++)
+            (cast() linesAvailableSemaphore).notify();
     }
 
-    public final void write(string s)
-    in
+    public string readln()
+    out(line)
     {
-        assert(s !is null);
+        assert(line[$-lineTerminator.length..$] == lineTerminator);
     }
     body
     {
-        synchronized
+        import std.string : indexOf;
+
+        ptrdiff_t lineTerminatorPosition;
+
+        string line;
+
+        (cast() linesAvailableSemaphore).wait();
+
+        synchronized(this)
         {
-            _content ~= s;
+            // Reaquire value for lineTerminatorPosition in case another thread
+            // was blocking this one from entering the synchronized block
+            lineTerminatorPosition = _content.indexOf(lineTerminator);
+            // Extract line and remove it from _content
+            line = _content[0..lineTerminatorPosition + lineTerminator.length];
+            _content = _content[lineTerminatorPosition + lineTerminator.length..$];
         }
+
+        return line;
     }
 }
 
 // TESTS
-
-@("InputStringStream stores content appropriately")
+@("InputStringStream reads out contents one line at a time regardless of line terminator")
 unittest
 {
     import unit_threaded : shouldEqual;
 
-    immutable string lineTerminator = "\n\r"; // Use something other than the default
-    immutable string initializerContent = "Content passed in the initializer" ~ lineTerminator;
+    string line1 = "This is line 1";
+    string line2 = "This is line 2";
 
-    auto stream = new shared InputStringStream(initializerContent, lineTerminator);
+    string lineTerminator1 = "\n";
 
-    stream.content.shouldEqual(initializerContent);
+    auto stream1 = new shared InputStringStream(line1 ~ lineTerminator1 ~
+                                                 line2 ~ lineTerminator1, lineTerminator1);
 
-    immutable string startOfLine1 = "This is the start of line 1...";
-    stream.write(startOfLine1);
+    stream1.readln().shouldEqual(line1 ~ lineTerminator1);
+    stream1.readln().shouldEqual(line2 ~ lineTerminator1);
 
-    stream.content.shouldEqual(initializerContent ~ startOfLine1);
+    string lineTerminator2 = "\n\r";
 
-    immutable string endOfLine1 = "... and this is the end of line 1";
-    stream.writeln(endOfLine1);
+    auto stream2 = new shared InputStringStream(line1 ~ lineTerminator2 ~
+                                                 line2 ~ lineTerminator2, lineTerminator2);
 
-    stream.content.shouldEqual(initializerContent ~ startOfLine1 ~
-                               endOfLine1 ~ lineTerminator);
+    stream2.readln().shouldEqual(line1 ~ lineTerminator2);
+    stream2.readln().shouldEqual(line2 ~ lineTerminator2);
 }
 
-@("InputStringStream can be written to from multiple threads")
+@("InputStringStream blocks threads on readln until a line is available")
 unittest
 {
     import unit_threaded : shouldEqual;
 
-    import std.string : count;
     import core.thread : ThreadGroup;
+    import core.atomic : atomicOp;
 
-    immutable string toBeWritten = "This is what each thread should write, plus the default line terminator";
 
     auto stream = new shared InputStringStream();
+    immutable string sampleLine = "This is a sample line\n";
 
-    auto threadGroup = new ThreadGroup();
+    ThreadGroup threads = new ThreadGroup();
+    enum lines = 20;
+    shared size_t linesRead;
 
-    enum threadsToUse = 20;
-
-    for(size_t i; i < threadsToUse; i++)
-        threadGroup.create(
+    for(size_t i; i < lines; i++)
+    {
+        threads.create(
             {
-                stream.writeln(toBeWritten);
+                stream.readln().shouldEqual(sampleLine);
+                linesRead.atomicOp!"+="(1);
             });
 
-    threadGroup.joinAll();
+        threads.create(
+            {
+                stream.appendContent(sampleLine);
+            });
+    }
 
-    stream.content.count(toBeWritten ~ stream.lineTerminator).shouldEqual(threadsToUse);
+    threads.joinAll();
+
+    linesRead.shouldEqual(lines);
 }
