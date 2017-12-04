@@ -6,7 +6,7 @@ import dli.output_string_stream;
 
 public class MockMenu : Menu!(shared InputStringStream, shared OutputStringStream, size_t)
 {
-    static size_t exitMenuItemKey = size_t.max;
+    private enum size_t exitMenuItemKey = size_t.max;
 
     public void mock_writeln(string s)
     in
@@ -16,6 +16,13 @@ public class MockMenu : Menu!(shared InputStringStream, shared OutputStringStrea
     body
     {
         inputStream.appendLine(s);
+    }
+
+    public void mock_writeExitRequest()
+    {
+        import std.conv : to;
+
+        inputStream.appendLine(to!string(exitMenuItemKey));
     }
 
     this()

@@ -3,13 +3,17 @@ module dli.menu;
 public import dli.menu_items.simple_menu_item;
 public import dli.display_scenario;
 import dli.exceptions.invalid_item_exception;
+import dli.exceptions.invalid_menu_status_exception;
+import dli.exceptions.invalid_key_exception;
+import dli.i_menu;
 
 import std.exception;
 import std.range.interfaces;
 import std.range.primitives;
 import std.typecons : Tuple, tuple;
+import std.string : format;
 
-public abstract class Menu(inputStreamT, outputStreamT, keyT)
+public abstract class Menu(inputStreamT, outputStreamT, keyT) : IMenu
 {
     protected inputStreamT inputStream;
     protected outputStreamT outputStream;
@@ -46,7 +50,9 @@ public abstract class Menu(inputStreamT, outputStreamT, keyT)
     /// Starts the menu. This method can only be called if the menu is stopped.
     public void run()
     {
-        enforce(_status == Status.Stopped);
+        enforce!InvalidMenuStatusException(_status == Status.Stopped,
+         "run may not be called while the menu is running.");
+
         try
         {
             _status = Status.Starting;
@@ -88,7 +94,8 @@ public abstract class Menu(inputStreamT, outputStreamT, keyT)
     /// Removes the menu item associated with key. If no item was associated with such key, nothing happens.
     public void removeItem(keyT key)
     {
-        enforce(status is Status.Stopped);
+        enforce!InvalidMenuStatusException(status is Status.Stopped,
+            "removeItem may not be called while the menu is running");
 
         menuItems.remove(key);
     }
@@ -96,7 +103,8 @@ public abstract class Menu(inputStreamT, outputStreamT, keyT)
     /// Removes all items from this menu.
     public void removeAllItems()
     {
-        enforce(status is Status.Stopped);
+        enforce!InvalidMenuStatusException(status is Status.Stopped,
+            "removeAllItems may not be called while the menu is running.");
 
         menuItems.clear();
     }
@@ -109,9 +117,12 @@ public abstract class Menu(inputStreamT, outputStreamT, keyT)
     }
     body
     {
-        enforce(status is Status.Stopped);
-        enforce(key !in menuItems);
+        enforce!InvalidMenuStatusException(status is Status.Stopped,
+            "addItem may not be called while the menu is running");
+        enforce!InvalidKeyException(key !in menuItems,
+            format("Tried to call addItem with key %s, but it is already in use.", key));
 
+        item.bind(this);
         menuItems[key] = item;
     }
 
@@ -205,7 +216,6 @@ public abstract class Menu(inputStreamT, outputStreamT, keyT)
     }
     body
     {
-        import std.format : format;
         import std.uni : toUpper;
         import std.conv : to;
 
@@ -227,7 +237,9 @@ public abstract class MenuItem
     immutable string displayString;
 
     private bool _enabled;
+    protected IMenu boundMenu;
 
+    /// Whether this item is enabled or not.
     @property
     public bool enabled()
     {
@@ -235,9 +247,29 @@ public abstract class MenuItem
     }
 
     @property
-    protected void enabled(bool enable)
+    public void enabled(bool enable)
     {
         _enabled = enable;
+    }
+
+    /**
+        Binds this MenuItem to a specific IMenu. This method may be only
+        be called once.
+    */
+    private void bind(IMenu menu)
+    in
+    {
+        assert(menu !is null);
+    }
+    body
+    {
+        import dli.exceptions.item_bound_exception : ItemBoundException;
+        import std.string : format;
+
+        enforce!ItemBoundException(boundMenu is null, format("Cannot bind MenuItem %s to %s. It is already bound to %s",
+                                                        this, menu, boundMenu));
+
+        boundMenu = menu;
     }
 
     this(string displayString, bool enabled)
@@ -249,3 +281,82 @@ public abstract class MenuItem
     protected abstract void execute();
 }
 
+// TESTS
+import test.dli.mock_menu;
+import test.dli.mock_menu_item;
+
+@("Menu allows execution of items")
+unittest
+{
+    auto menu = new MockMenu();
+    auto item = new MockMenuItem();
+
+    menu.addItem(item, 1);
+    menu.mock_writeln("1");
+    menu.mock_writeExitRequest();
+    menu.run();
+
+    assert(item.executed);
+}
+
+@("Menu does not allow items to be added or removed while running")
+unittest
+{
+    import dli.menu_items.simple_menu_item : SimpleMenuItem;
+
+    auto menu = new MockMenu();
+    auto addItemItem = createSimpleMenuItem("", 
+        {
+            menu.addItem(new MockMenuItem(), 1);
+        });
+    auto removeItemItem = createSimpleMenuItem("",
+        {
+            menu.removeItem(1);
+        });
+    auto removeAllItemsItem = createSimpleMenuItem("",
+        {
+            menu.removeAllItems();
+        });
+
+    menu.addItem(addItemItem, 1);
+    menu.addItem(removeItemItem, 2);
+    menu.addItem(removeAllItemsItem, 3);
+
+    menu.mock_writeln("1");
+    assertThrown!InvalidMenuStatusException(menu.run());
+
+    menu.mock_writeln("2");
+    assertThrown!InvalidMenuStatusException(menu.run());
+
+    menu.mock_writeln("3");
+    assertThrown!InvalidMenuStatusException(menu.run());
+}
+
+@("Menu does not allow two items to be added with the same key")
+unittest
+{
+    auto menu = new MockMenu();
+    auto item1 = new MockMenuItem();
+    auto item2 = new MockMenuItem();
+
+    menu.addItem(item1, 1);
+    
+    assertThrown!InvalidKeyException(menu.addItem(item1, 1));
+    assertThrown!InvalidKeyException(menu.addItem(item2, 1));
+}
+
+@("MenuItem cannot be added to a menu twice")
+unittest
+{
+    import std.exception : assertThrown;
+    import dli.exceptions.item_bound_exception : ItemBoundException;
+
+    auto menu1 = new MockMenu();
+    auto menu2 = new MockMenu();
+    auto item = new MockMenuItem();
+
+    menu1.addItem(item, 1); // item is now bound to menu1
+    
+    assertThrown!ItemBoundException(menu1.addItem(item, 2));
+    assertThrown!ItemBoundException(menu2.addItem(item, 1));
+}

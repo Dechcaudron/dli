@@ -44,7 +44,7 @@ unittest
 
     menu.addItem(f1Caller, 1);
     menu.mock_writeln("1");
-    menu.mock_writeln(to!string(MockMenu.exitMenuItemKey));
+    menu.mock_writeExitRequest();
     menu.run();
 
     assert(f1WasCalled);
@@ -54,7 +54,7 @@ unittest
 
     menu.addItem(lambdaCaller, 2);
     menu.mock_writeln("2");
-    menu.mock_writeln(to!string(MockMenu.exitMenuItemKey));
+    menu.mock_writeExitRequest();
     menu.run();
 
     assert(lambdaWasCalled);
@@ -81,7 +81,7 @@ unittest
 
     menu.addItem(structMethodCaller, 1);
     menu.mock_writeln("1");
-    menu.mock_writeln(to!string(MockMenu.exitMenuItemKey));
+    menu.mock_writeExitRequest();
     menu.run();
 
     assert(testStructInstance.methodWasCalled);
@@ -100,7 +100,7 @@ unittest
 
     menu.addItem(classMethodCaller, 2);
     menu.mock_writeln("2");
-    menu.mock_writeln(to!string(MockMenu.exitMenuItemKey));
+    menu.mock_writeExitRequest();
     menu.run();
 
     assert(testClassInstance.methodWasCalled);
