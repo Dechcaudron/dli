@@ -35,6 +35,16 @@ public shared class InputStringStream
         appendContent(content);
     }
 
+    public final void appendLine(string content)
+    in
+    {
+        assert(content !is null);
+    }
+    body
+    {
+        appendContent(content ~ lineTerminator);
+    }
+
     public final void appendContent(string content)
     in
     {

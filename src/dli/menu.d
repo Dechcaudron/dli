@@ -1,21 +1,22 @@
 module dli.menu;
 
-public import dli.simple_menu_item;
+public import dli.menu_items.simple_menu_item;
 public import dli.display_scenario;
-import dli.i_menu_item;
-import dli.simple_menu_item;
 import dli.exceptions.invalid_item_exception;
 
 import std.exception;
 import std.range.interfaces;
 import std.range.primitives;
+import std.typecons : Tuple, tuple;
 
 public abstract class Menu(inputStreamT, outputStreamT, keyT)
 {
     protected inputStreamT inputStream;
     protected outputStreamT outputStream;
 
-    private string _welcomeMsg; // Welcome message for this menu
+    protected MenuItem[keyT] menuItems;
+
+    private string _welcomeMsg = "Please, select an option:"; // Welcome message for this menu
     private DisplayScenario _welcomeMsgDisplayScenario; // Scenario when the welcome message should be displayed
 
     private string _promptMsg = "> "; // String to be printed before asking the user for input
@@ -23,8 +24,8 @@ public abstract class Menu(inputStreamT, outputStreamT, keyT)
     private string _onMenuExitMsg = "Exiting menu...";
     private string _onInvalidItemSelectedMsg = "Please, select a valid item from the list.";
 
-    public static enum printItemIdKeyword = "_$_ID_$_"; /// String to be used in place of the IMenuItem identifier in itemPrintFormat
-    public static enum printItemTextKeyword = "_$_TEXT_$_"; /// String to be used in place of the IMenuItem text in itemPrintFormat
+    public static enum printItemIdKeyword = "_$_ID_$_"; /// String to be used in place of the MenuItem identifier in itemPrintFormat
+    public static enum printItemTextKeyword = "_$_TEXT_$_"; /// String to be used in place of the MenuItem text in itemPrintFormat
     private string _itemPrintFormat = printItemIdKeyword ~ " - " ~ printItemTextKeyword; /// Stores the format in which menu items are printed to the output stream
 
     private Status _status = Status.Stopped;
@@ -84,13 +85,52 @@ public abstract class Menu(inputStreamT, outputStreamT, keyT)
         }
     }
 
-    protected void printItem(string id, string itemText)
+    /// Removes the menu item associated with key. If no item was associated with such key, nothing happens.
+    public void removeItem(keyT key)
     {
-        import std.string : replace;
+        enforce(status is Status.Stopped);
 
-        string toBePrinted = _itemPrintFormat.replace(printItemIdKeyword, id).
-                             replace(printItemTextKeyword, itemText);
-        outputStream.writeln(toBePrinted);
+        menuItems.remove(key);
+    }
+
+    /// Removes all items from this menu.
+    public void removeAllItems()
+    {
+        enforce(status is Status.Stopped);
+
+        menuItems.clear();
+    }
+
+    /// Associates the given item with the given key in this menu.
+    public void addItem(MenuItem item, keyT key)
+    in
+    {
+        assert(item !is null);
+    }
+    body
+    {
+        enforce(status is Status.Stopped);
+        enforce(key !in menuItems);
+
+        menuItems[key] = item;
+    }
+
+    private void printEnabledItems()
+    {
+        import std.conv : to;
+
+        void printItem(string key, string itemText)
+        {
+            import std.string : replace;
+
+            string toBePrinted = _itemPrintFormat.replace(printItemIdKeyword, key).
+                                replace(printItemTextKeyword, itemText);
+            outputStream.writeln(toBePrinted);
+        }
+
+        foreach(Tuple!(keyT, MenuItem) itemTuple; sortItemsForDisplay())
+            if(itemTuple[1].enabled)
+                printItem(to!string(itemTuple[0]), itemTuple[1].displayString);
     }
 
     private void awaitAndExecuteUserInteraction()
@@ -109,11 +149,12 @@ public abstract class Menu(inputStreamT, outputStreamT, keyT)
         }
         catch(ConvException e)
         {
+            // TODO: throw an InvalidInputException?
             throw new InvalidItemException(format!("Cannot convert user input '%s' " ~
                 "into key type %s")(cleansedUserInput, keyT.stringof));
         }
         
-        IMenuItem menuItem = getMenuItem(menuItemKey);
+        MenuItem menuItem = getMenuItem(menuItemKey);
         enforce!InvalidItemException(menuItem.enabled, format!("User tried to select disabled " ~
                 "menu item with key %s")(menuItemKey));
         
@@ -125,9 +166,27 @@ public abstract class Menu(inputStreamT, outputStreamT, keyT)
         outputStream.writeln(_welcomeMsg);
     }
 
-    abstract protected void printEnabledItems();
-    abstract protected IMenuItem getMenuItem(keyT menuItemKey);
-    abstract protected void addExitMenuItem(IMenuItem exitMenuItem);
+    protected final MenuItem getMenuItem(keyT key)
+    {
+        import std.format : format;
+        enforce!InvalidItemException(key in menuItems, format!("Tried to retrieve " ~
+                "unexisting menu item with key %s")(key));
+
+        return menuItems[key];
+    }
+
+    protected Tuple!(keyT, MenuItem)[] sortItemsForDisplay()
+    {
+        //Default implementation simply returns the items as they are found in menuItems
+        Tuple!(keyT, MenuItem)[] sortedItems;
+
+        foreach(keyT key, MenuItem item; menuItems)
+            sortedItems ~= tuple(key, item);
+
+        return sortedItems;
+    }
+
+    abstract protected void addExitMenuItem(MenuItem exitMenuItem);
     abstract protected void removeExitMenuItem();
 
     protected enum Status
@@ -137,29 +196,56 @@ public abstract class Menu(inputStreamT, outputStreamT, keyT)
         Starting,
         Running
     }
+
+    // Helper function to generate setters via mixins
+    private static string generateMenuCustomizingSetter(T)(string fieldName) pure
+    in
+    {
+        assert(fieldName[0] == '_');
+    }
+    body
+    {
+        import std.format : format;
+        import std.uni : toUpper;
+        import std.conv : to;
+
+        string propertyIdentifier = fieldName[1..$];
+
+        return format("@property
+                    public void %s(%s a)
+                    body
+                    {
+                        enforce(_status == Status.Stopped);
+
+                        %s = a;
+                    }", propertyIdentifier, T.stringof, fieldName);
+    }
 }
 
-// Helper function to generate setters via mixins
-private string generateMenuCustomizingSetter(T)(string fieldName) pure
-in
+public abstract class MenuItem
 {
-    assert(fieldName[0] == '_');
-}
-body
-{
-    import std.format : format;
-    import std.uni : toUpper;
-    import std.conv : to;
+    immutable string displayString;
 
-    string propertyIdentifier = fieldName[1..$];
+    private bool _enabled;
 
-    return format("@property
-                   public void %s(%s a)
-                   body
-                   {
-                       enforce(_status == Status.Stopped);
+    @property
+    public bool enabled()
+    {
+        return _enabled;
+    }
 
-                       %s = a;
-                   }", propertyIdentifier, T.stringof, fieldName);
+    @property
+    protected void enabled(bool enable)
+    {
+        _enabled = enable;
+    }
+
+    this(string displayString, bool enabled)
+    {
+        this.displayString = displayString;
+        this.enabled = enabled;
+    }
+
+    protected abstract void execute();
 }
 

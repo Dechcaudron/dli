@@ -13,8 +13,9 @@
 			"targetType": "executable"
 		},
         {
-            "name": "unittest",
-            "targetType": "executable",
+			"name": "unittest",
+			"targetType": "executable",
+			"targetName": "tests",
             "preBuildCommands": ["dub run unit-threaded -c gen_ut_main -- -f bin/ut.d"],
             "mainSourceFile": "bin/ut.d",
             "excludedSourceFiles": ["src/app.d"],
