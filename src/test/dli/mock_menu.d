@@ -4,10 +4,26 @@ import dli.menu;
 import dli.input_string_stream;
 import dli.output_string_stream;
 
+///
 public class MockMenu : Menu!(shared InputStringStream, shared OutputStringStream, size_t)
 {
     private enum size_t exitMenuItemKey = size_t.max;
 
+    /// Creates a MockMenu with its own input and output streams
+    this()
+    {
+        inputStream = new shared InputStringStream();
+        outputStream = new shared OutputStringStream();
+    }
+
+    /// Creates a MockMenu that uses the input and output streams of the passed menu
+    this(MockMenu mockMenu)
+    {
+        inputStream = mockMenu.inputStream;
+        outputStream = mockMenu.outputStream;
+    }
+
+    /// Mocks the writing of a line into the input stream
     public void mock_writeln(string s)
     in
     {
@@ -18,23 +34,12 @@ public class MockMenu : Menu!(shared InputStringStream, shared OutputStringStrea
         inputStream.appendLine(s);
     }
 
+    /// Mocks the required writing to select the "exit menu" menu item
     public void mock_writeExitRequest()
     {
         import std.conv : to;
 
         inputStream.appendLine(to!string(exitMenuItemKey));
-    }
-
-    this()
-    {
-        inputStream = new shared InputStringStream();
-        outputStream = new shared OutputStringStream();
-    }
-
-    this(shared InputStringStream inputStream, shared OutputStringStream outputStream)
-    {
-        inputStream = inputStream;
-        outputStream = outputStream;
     }
 
     protected override void addExitMenuItem(MenuItem exitMenuItem)

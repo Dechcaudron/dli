@@ -7,8 +7,9 @@ public class MockMenuItem : MenuItem
 {
     private bool _executed;
 
+    /// Whether the item has been executed or not.
     @property
-    public bool executed()
+    public bool executed() const
     {
         return _executed;
     }
