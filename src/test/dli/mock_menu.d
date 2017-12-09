@@ -5,7 +5,7 @@ import dli.input_string_stream;
 import dli.output_string_stream;
 
 ///
-public class MockMenu : Menu!(shared InputStringStream, shared OutputStringStream, size_t)
+public class MockMenu : TextMenu!(shared InputStringStream, shared OutputStringStream, size_t)
 {
     private enum size_t exitMenuItemKey = size_t.max;
 

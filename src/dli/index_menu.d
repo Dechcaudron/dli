@@ -9,7 +9,7 @@ import dli.exceptions.invalid_item_exception;
 
 import std.typecons : Tuple, tuple;
 
-public class IndexMenu(inputStreamT, outputStreamT) : Menu!(inputStreamT, outputStreamT, size_t)
+public class IndexMenu(inputStreamT, outputStreamT) : TextMenu!(inputStreamT, outputStreamT, size_t)
 {
     private size_t highestMenuItemIndex;
 

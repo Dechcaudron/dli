@@ -5,6 +5,7 @@ public import dli.display_scenario;
 import dli.exceptions.invalid_item_exception;
 import dli.exceptions.invalid_menu_status_exception;
 import dli.exceptions.invalid_key_exception;
+import dli.exceptions.no_menu_running_exception;
 import dli.i_text_menu;
 
 import std.exception;
@@ -13,7 +14,10 @@ import std.range.primitives;
 import std.typecons : Tuple, tuple;
 import std.string : format;
 
-public abstract class Menu(inputStreamT, outputStreamT, keyT) : ITextMenu
+package static ITextMenu activeTextMenu;
+
+///
+public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
 {
     protected inputStreamT inputStream;
     protected outputStreamT outputStream;
@@ -33,6 +37,7 @@ public abstract class Menu(inputStreamT, outputStreamT, keyT) : ITextMenu
     private string _itemPrintFormat = printItemIdKeyword ~ " - " ~ printItemTextKeyword; /// Stores the format in which menu items are printed to the output stream
 
     private Status _status = Status.Stopped;
+    private static ITextMenu parentTextMenu;
 
     @property
     protected Status status()
@@ -82,6 +87,70 @@ public abstract class Menu(inputStreamT, outputStreamT, keyT) : ITextMenu
         menuItems[key] = item;
     }
 
+     /// Starts the menu. This method can only be called if the menu is stopped.
+    public override void run()
+    {
+        enforce!InvalidMenuStatusException(_status == Status.Stopped,
+         "run may not be called while the menu is running.");
+
+        try
+        {
+            parentTextMenu = activeTextMenu;
+            activeTextMenu = this;
+            _status = Status.Starting;
+            /* Before actually starting the menu, we need to provide the user with a way to
+               exit the menu. We create an ad hoc MenuItem for this purpose and add it here */
+            addExitMenuItem(createSimpleMenuItem("Exit", 
+                {
+                    writeln(_onMenuExitMsg);
+                    _status = Status.Stopping;}));
+
+            _status = Status.Running;
+
+            while(_status == Status.Running)
+            {
+                
+                
+                printWelcomeMsg();
+
+                printEnabledItems();
+                write(_promptMsg);
+                try
+                {
+                    awaitAndExecuteUserInteraction();
+                }
+                catch(InvalidItemException e)
+                {
+                    outputStream.writeln(_onInvalidItemSelectedMsg);
+                }
+                write(_onItemExecutedMsg);
+            }
+        }
+        finally
+        {
+            _status = Status.Stopping;
+            // In order to leave things as they were prior to calling this method, the ad hoc MenuItem used to exit the menu is removed
+            removeExitMenuItem();
+            _status = Status.Stopped;
+            activeTextMenu = parentTextMenu;
+        }
+    }
+
+    public override void writeln(string s)
+    {
+        outputStream.writeln(s);
+    }
+
+    public override void write(string s)
+    {
+        outputStream.write(s);
+    }
+
+    public override string readln()
+    {
+        return inputStream.readln();
+    }
+
     private void printEnabledItems()
     {
         import std.conv : to;
@@ -125,7 +194,7 @@ public abstract class Menu(inputStreamT, outputStreamT, keyT) : ITextMenu
         enforce!InvalidItemException(menuItem.enabled, format!("User tried to select disabled " ~
                 "menu item with key %s")(menuItemKey));
         
-        menuItem.tryExecute();
+        menuItem.execute();
     }
 
     private void printWelcomeMsg()
@@ -163,65 +232,6 @@ public abstract class Menu(inputStreamT, outputStreamT, keyT) : ITextMenu
         Stopped,
         Starting,
         Running
-    }
-
-    /// Starts the menu. This method can only be called if the menu is stopped.
-    public override void run()
-    {
-        enforce!InvalidMenuStatusException(_status == Status.Stopped,
-         "run may not be called while the menu is running.");
-
-        try
-        {
-            _status = Status.Starting;
-            /* Before actually starting the menu, we need to provide the user with a way to
-               exit the menu. We create an ad hoc MenuItem for this purpose and add it here */
-            addExitMenuItem(createSimpleMenuItem("Exit", 
-                {
-                    writeln(_onMenuExitMsg);
-                    _status = Status.Stopping;}));
-
-            _status = Status.Running;
-
-            while(_status == Status.Running)
-            {
-                printWelcomeMsg();
-
-                printEnabledItems();
-                write(_promptMsg);
-                try
-                {
-                    awaitAndExecuteUserInteraction();
-                }
-                catch(InvalidItemException e)
-                {
-                    outputStream.writeln(_onInvalidItemSelectedMsg);
-                }
-                write(_onItemExecutedMsg);
-            }
-        }
-        finally
-        {
-            _status = Status.Stopping;
-            // In order to leave things as they were prior to calling this method, the ad hoc MenuItem used to exit the menu is removed
-            removeExitMenuItem();
-            _status = Status.Stopped;
-        }
-    }
-
-    public override void writeln(string s)
-    {
-        outputStream.writeln(s);
-    }
-
-    public override void write(string s)
-    {
-        outputStream.write(s);
-    }
-
-    public override string readln()
-    {
-        return inputStream.readln();
     }
 
     // Helper function to generate setters via mixins
@@ -279,26 +289,6 @@ public abstract class MenuItem
         this.enabled = enabled;
     }
 
-    /**
-        This method enables asking the user for confirmation prior to execution of the
-        item after its selection.
-
-        confirmationRequestMsg is the message displayed to the user when the item is selected.
-        confirmationAnswer is the exact string (excluding line terminator and trailing whitespaces)
-                           the user must input to execute the item.
-    */
-    public final void requireConfirmation(string confirmationRequestMsg, string confirmationAnswer)
-    in
-    {
-        assert(confirmationRequestMsg !is null);
-        assert(confirmationAnswer !is null);
-    } 
-    body
-    {
-        this.confirmationRequestMsg = confirmationRequestMsg;
-        this.confirmationAnswer = confirmationAnswer;
-    }
-
     protected abstract void execute();
 
     /**
@@ -319,22 +309,6 @@ public abstract class MenuItem
                                                         this, textMenu, this.textMenu));
 
         this.textMenu = textMenu;
-    }
-
-    private void tryExecute()
-    {
-        bool requestConfirmation()
-        {
-            import std.string : strip;
-
-            textMenu.write(confirmationRequestMsg);
-            auto answer = textMenu.readln().strip();
-            return answer == confirmationAnswer;
-        }
-
-        // Does this item require confirmation?
-        if(confirmationRequestMsg is null || requestConfirmation())
-            execute();
     }
 }
 
@@ -361,6 +335,7 @@ version(unittest)
     @("Menu does not allow items to be added or removed while running")
     unittest
     {
+        // TODO: this should not depend on SimpleMenuItem
         import dli.menu_items.simple_menu_item : SimpleMenuItem;
 
         auto menu = new MockMenu();
@@ -418,31 +393,5 @@ version(unittest)
         
         assertThrown!ItemBoundException(menu1.addItem(item, 2));
         assertThrown!ItemBoundException(menu2.addItem(item, 1));
-    }
-
-    @("MenuItem can require confirmation from user")
-    unittest
-    {
-        auto menu = new MockMenu();
-        auto item = new MockMenuItem();
-
-        immutable string confirmationAnswer = "_CONFIRM_"; // Just a random string
-        item.requireConfirmation("", confirmationAnswer);
-
-        menu.addItem(item, 1);
-
-        menu.mock_writeln("1");
-        menu.mock_writeln("asdf"); // Whatever different from confirmationAnswer
-        menu.mock_writeExitRequest();
-        menu.run();
-
-        assert(!item.executed);
-
-        menu.mock_writeln("1");
-        menu.mock_writeln(confirmationAnswer);
-        menu.mock_writeExitRequest();
-        menu.run();
-
-        assert(item.executed);
     }
 }
