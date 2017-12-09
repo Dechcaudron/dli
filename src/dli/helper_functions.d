@@ -3,6 +3,7 @@ module dli.helper_functions;
 import dli.exceptions.no_menu_running_exception;
 import dli.menu;
 import std.conv;
+import std.exception;
 import std.meta;
 import std.string;
 
