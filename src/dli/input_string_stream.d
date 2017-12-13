@@ -1,4 +1,4 @@
-module dli.output_string_stream;
+module dli.input_string_stream;
 
 import core.sync.semaphore;
 

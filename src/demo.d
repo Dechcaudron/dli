@@ -16,35 +16,31 @@ void main()
 		createSimpleMenuItem(
 			"Write \"Hello world!\"",
 			{mainMenu.writeln("Hello world!");}
-		),
-		1
+		)
 	);
 
 	mainMenu.addItem(
 		createSimpleMenuItem(
 			"Change item printing style to something fancy",
 			{mainMenu.itemPrintFormat = "[" ~ mainMenu.printItemIdKeyword ~ "] => " ~ mainMenu.printItemTextKeyword;}
-		),
-		2
+		)
 	);
 
 	mainMenu.addItem(
 		createSimpleMenuItem(
 			"Change item printing style to something simple",
 			{mainMenu.itemPrintFormat = mainMenu.printItemIdKeyword ~ " - " ~ mainMenu.printItemTextKeyword;}
-		),
-		3
+		)
 	);
 
 	auto uselessItem = createSimpleMenuItem("I do nothing", {});
-	mainMenu.addItem(uselessItem, 4);
+	mainMenu.addItem(uselessItem);
 
 	mainMenu.addItem(
 		createSimpleMenuItem(
-			"Toggle item 4",
+			"Toggle useless item",
 			{uselessItem.enabled = !uselessItem.enabled;}
-		),
-		5
+		)
 	);
 
 	auto nestedMenu = createIndexMenu();
