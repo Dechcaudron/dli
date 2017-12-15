@@ -10,27 +10,27 @@ import std.string;
 /** 
     Helper method to require a string confirmation inside an action item.
     The user input is passed to std.string.strip before it is compared
-    to the requiredConfirmationAnswer.
+    to requiredAnswer.
 
     Throws NoMenuRunningException if no menu is running.
 */
-public bool requireConfirmation(string requestConfirmationMsg, string requiredConfirmationAnswer)
+public bool requestConfirmation(string requestMsg, string requiredAnswer)
 in
 {
-    assert(requestConfirmationMsg !is null);
-    assert(requiredConfirmationAnswer !is null);
+    assert(requestMsg !is null);
+    assert(requiredAnswer !is null);
 }
 body
 {
     import std.string : strip;
 
     enforce!NoMenuRunningException(activeTextMenu !is null,
-                                   "requireConfirmation needs a running menu " ~
+                                   "requestConfirmation needs a running menu " ~
                                    "from which to ask for confirmation");
-    
-    activeTextMenu.write(requestConfirmationMsg);
-    
-    return activeTextMenu.readln().strip() == requiredConfirmationAnswer;
+
+    string answer;
+    return request!string(requestMsg, &answer) &&
+           answer.strip() == requiredAnswer;
 }
 
 /**
@@ -42,26 +42,25 @@ body
 
     Throws NoMenuRunningException if no menu is running.
 */
-public bool requestData(dataT, restrictionCheckerT)
+public bool request(dataT, restrictionCheckerT)
             (string requestMsg,
             dataT* dataDestination,
-            string onInvalidDataMsg = "Invalid data.",
             restrictionCheckerT restriction = (dataT foo){return true;}, // No restrictions by default
             )
 in
 {
     assert(requestMsg !is null);
     assert(dataDestination !is null);
-    assert(onInvalidDataMsg !is null);
     assert(restriction !is null);
 }
 body
 {
     enforce!NoMenuRunningException(activeTextMenu !is null,
-                                   "requestData needs a running menu " ~
+                                   "'request' needs a running menu " ~
                                    "from which to ask for data. " ~
                                    "Are you calling it from outside a MenuItem?");
 
+    activeTextMenu.write(requestMsg);
     try
     {
         string input = activeTextMenu.readln().strip();
@@ -76,7 +75,6 @@ body
     {
     }
 
-    activeTextMenu.writeln(onInvalidDataMsg);
     return false;
 }
 
@@ -88,7 +86,7 @@ version(unittest)
     import test.dli.mock_menu_item;
     import unit_threaded;
 
-    @("requireConfirmation works if called from within MenuItem")
+    @("requestConfirmation works if called from within MenuItem")
     unittest
     {
         auto menu = new MockMenu();
@@ -98,7 +96,7 @@ version(unittest)
         {
             protected override void execute()
             {
-                if(requireConfirmation("", confirmationAnswer))
+                if(requestConfirmation("", confirmationAnswer))
                     super.execute();
             }
         }
@@ -122,10 +120,10 @@ version(unittest)
         assert(item.executed);
     }
 
-    @("requireConfirmation throws NoMenuRunningException if called directly")
+    @("requestConfirmation throws NoMenuRunningException if called directly")
     unittest
     {
-        assertThrown!NoMenuRunningException(requireConfirmation("",""));
+        assertThrown!NoMenuRunningException(requestConfirmation("",""));
     }
 
     class SimpleMenuItem : MockMenuItem
@@ -159,7 +157,7 @@ version(unittest)
                         string
                     ))
     {
-        @("requestData works for type " ~ supportedType.stringof)
+        @("request works for type " ~ supportedType.stringof)
         unittest
         {
         
@@ -170,7 +168,7 @@ version(unittest)
 
             menu.addItem(
                 new SimpleMenuItem(
-                    {dataValid = requestData("", &myData);}
+                    {dataValid = request("", &myData);}
                 ), 1
             );
 
@@ -255,17 +253,17 @@ version(unittest)
     }
     
 
-    @("requestData can take restrictions")
+    @("request can take restrictions")
     unittest
     {
         auto menu = new MockMenu();
         //int myData == 6);
     }
 
-    @("requestData throws NoMenuRunningException if called directly")
+    @("request throws NoMenuRunningException if called directly")
     unittest
     {
         int dummy;
-        assertThrown!NoMenuRunningException(requestData("", &dummy, ""));
+        assertThrown!NoMenuRunningException(request("", &dummy));
     }
 }
