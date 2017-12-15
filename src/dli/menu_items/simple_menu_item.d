@@ -1,6 +1,6 @@
 module dli.menu_items.simple_menu_item;
 
-import dli.menu;
+import dli.text_menu : MenuItem;
 
 
 public class SimpleMenuItem(actionT) : MenuItem

@@ -1,13 +1,13 @@
 module dli.index_menu;
 
-import std.stdio;
-import std.exception;
-import std.conv;
-
-import dli.menu;
+import dli.text_menu;
 import dli.exceptions.invalid_item_exception;
-
+import std.conv;
+import std.exception;
+import std.stdio;
 import std.typecons : Tuple, tuple;
+
+
 
 public class IndexMenu(inputStreamT, outputStreamT) : TextMenu!(inputStreamT, outputStreamT, size_t)
 {

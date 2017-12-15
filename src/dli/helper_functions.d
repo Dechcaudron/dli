@@ -1,18 +1,20 @@
 module dli.helper_functions;
 
 import dli.exceptions.no_menu_running_exception;
-import dli.menu;
+import dli.text_menu;
 import std.conv;
 import std.exception;
 import std.meta;
-import std.string;
+import std.string : strip, format;
+import std.traits;
 
 /** 
     Helper method to require a string confirmation inside an action item.
+
     The user input is passed to std.string.strip before it is compared
     to requiredAnswer.
 
-    Throws NoMenuRunningException if no menu is running.
+    Throws: NoMenuRunningException if no menu is running in the calling thread.
 */
 public bool requestConfirmation(string requestMsg, string requiredAnswer)
 in
@@ -33,20 +35,52 @@ body
            answer.strip() == requiredAnswer;
 }
 
+/// Types supported by the helper 'request' method
+private alias requestSupportedTypes = AliasSeq!(
+    ubyte,
+    ushort,
+    uint,
+    ulong,
+    byte,
+    short,
+    int,
+    long,
+    char,
+    float,
+    double,
+    real,
+    string
+);
+
 /**
     Helper method to require data with type and possible additional restrictions.
+
     The user input is passed to std.string.strip before conversion is attempted.
+
+    Params: requestMsg      = message to write out when asking for data.
+            dataDestination = pointer where the data should be stored,
+                              if the input is valid.
+            restriction     = a callable item that takes a single dataT argument
+                              and returns whether it is valid or not. Use it to
+                              add additional restrictions onto the data being
+                              requested.
+
     
-    Returns whether or not the input data is valid. If false, no writing has been
+    Returns: whether or not the input data is valid. If false, no writing has been
     performed into dataDestination.
 
-    Throws NoMenuRunningException if no menu is running.
+    Throws: NoMenuRunningException if no menu is running in the calling thread.
 */
 public bool request(dataT, restrictionCheckerT)
             (string requestMsg,
             dataT* dataDestination,
             restrictionCheckerT restriction = (dataT foo){return true;}, // No restrictions by default
             )
+if(staticIndexOf!(dataT, requestSupportedTypes) != -1 &&
+   isCallable!restrictionCheckerT &&
+   Parameters!restrictionCheckerT.length == 1 &&
+   is(Parameters!restrictionCheckerT[0] : dataT) &&
+   is(ReturnType!restrictionCheckerT == bool))
 in
 {
     assert(requestMsg !is null);
@@ -60,7 +94,7 @@ body
                                    "from which to ask for data. " ~
                                    "Are you calling it from outside a MenuItem?");
 
-    activeTextMenu.write(requestMsg);
+    write(requestMsg);
     try
     {
         string input = activeTextMenu.readln().strip();
@@ -76,6 +110,47 @@ body
     }
 
     return false;
+}
+
+/**
+    Helper method to write to the output string of the currently running menu.
+
+    Params: s = string to write.
+
+    Throws: NoMenuRunningException if no menu is running in the calling thread.
+*/
+public void write(string s)
+in
+{
+    assert(s !is null);
+}
+body
+{
+    enforce!NoMenuRunningException(activeTextMenu !is null,
+                                   "'write' needs a running menu " ~
+                                   "from which to write");
+    activeTextMenu.write(s);
+}
+
+/**
+    Helper method to write to the output string of the currently running menu,
+    plus an end-of-line sequence.
+
+    Params: s = string to write.
+
+    Throws: NoMenuRunningException if no menu is running in the calling thread.
+*/
+public void writeln(string s)
+in
+{
+    assert(s !is null);
+}
+body
+{
+    enforce!NoMenuRunningException(activeTextMenu ! is null,
+                                   "'writeln' requires a running menu " ~
+                                   "from which to write a line");
+    activeTextMenu.writeln(s);
 }
 
 // TESTS
@@ -146,21 +221,11 @@ version(unittest)
         }
     }
 
-    static foreach (alias supportedType; AliasSeq!(
-                        byte,
-                        short,
-                        int,
-                        long,
-                        float,
-                        double,
-                        char,
-                        string
-                    ))
+    static foreach (alias supportedType; requestSupportedTypes)
     {
         @("request works for type " ~ supportedType.stringof)
         unittest
         {
-        
             auto menu = new MockMenu();
 
             supportedType myData;
@@ -208,8 +273,7 @@ version(unittest)
             menu.mock_writeExitRequest();
             menu.run();
 
-            enum fractionalIsValidInput = is(supportedType == float) || 
-                                          is(supportedType == double) || 
+            enum fractionalIsValidInput = isFloatingPoint!supportedType || 
                                           is(supportedType == string);
 
             dataValid.shouldEqual(fractionalIsValidInput);
@@ -217,20 +281,17 @@ version(unittest)
                 myData.shouldEqual(to!supportedType(fractionalInput));
 
             // The user inputs a positive integer
-            enum integerInput = "8";
+            enum integerInput = "15";
             menu.mock_writeln("1");
             menu.mock_writeln(integerInput);
             menu.mock_writeExitRequest();
             menu.run();
 
-            enum integerIsValidInput = is(supportedType : long) ||
-                                       is(supportedType : ulong) ||
-                                       is(supportedType == float) ||
-                                       is(supportedType == double) ||
-                                       is(supportedType == string);
+            enum positiveIntegerIsValidInput = isNumeric!supportedType ||
+                                               is(supportedType == string);
 
-            dataValid.shouldEqual(integerIsValidInput);
-            static if (integerIsValidInput)
+            dataValid.shouldEqual(positiveIntegerIsValidInput);
+            static if (positiveIntegerIsValidInput)
                 myData.shouldEqual(to!supportedType(integerInput));
 
             // The user inputs a negative integer
@@ -240,10 +301,7 @@ version(unittest)
             menu.mock_writeExitRequest();
             menu.run();
 
-            enum negativeIntegerIsValidInput = !is(supportedType == char) &&
-                                               is(supportedType : long) ||
-                                               is(supportedType == float) ||
-                                               is(supportedType == double) ||
+            enum negativeIntegerIsValidInput = isSigned!supportedType ||
                                                is(supportedType == string);
 
             dataValid.shouldEqual(negativeIntegerIsValidInput);
@@ -256,8 +314,32 @@ version(unittest)
     @("request can take restrictions")
     unittest
     {
+        int myInt;
+        bool dataValid;
         auto menu = new MockMenu();
-        //int myData == 6);
+
+        menu.addItem(
+            new SimpleMenuItem(
+                {
+                    dataValid = request!int("", &myInt, (int a){return a % 2 == 0;}); // Only accepts even integers
+                }
+            ), 1
+        );
+
+        menu.mock_writeln("1");
+        menu.mock_writeln("5"); // Not an even integer
+        menu.mock_writeExitRequest();
+        menu.run();
+
+        assert(!dataValid);
+
+        menu.mock_writeln("1");
+        menu.mock_writeln("8"); // Even integer
+        menu.mock_writeExitRequest();
+        menu.run();
+
+        assert(dataValid);
+        assert(myInt == 8);
     }
 
     @("request throws NoMenuRunningException if called directly")

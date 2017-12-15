@@ -1,11 +1,8 @@
-import std.stdio;
-
 import dli.helper_functions;
 import dli.index_menu;
 import dli.menu_items.simple_menu_item;
 import dli.menu_items.nested_menu_menu_item;
 
-import std.stdio;
 import std.string;
 
 void main()
@@ -17,21 +14,21 @@ void main()
 	mainMenu.addItem(
 		createSimpleMenuItem(
 			"Write \"Hello world!\"",
-			{mainMenu.writeln("Hello world!");}
+			{writeln("Hello world!");}
 		)
 	);
 
 	mainMenu.addItem(
 		createSimpleMenuItem(
 			"Change item printing style to something fancy",
-			{mainMenu.itemPrintFormat = "[" ~ mainMenu.printItemIdKeyword ~ "] => " ~ mainMenu.printItemTextKeyword;}
+			{mainMenu.itemPrintFormat = "[%item_key%] => %item_text%";}
 		)
 	);
 
 	mainMenu.addItem(
 		createSimpleMenuItem(
 			"Change item printing style to something simple",
-			{mainMenu.itemPrintFormat = mainMenu.printItemIdKeyword ~ " - " ~ mainMenu.printItemTextKeyword;}
+			{mainMenu.itemPrintFormat = "%item_key% - %item_text%";}
 		)
 	);
 
@@ -55,10 +52,10 @@ void main()
 				"Request a number",
 				{
 					float myFloat;
-					while(!request!float("Please, input an number: ", &myFloat))
-						nestedMenu.writeln("That is not a valid number.");
+					while(!request("Please, input an number: ", &myFloat))
+						writeln("That is not a valid number.");
 
-					nestedMenu.writeln(format("Thanks for your number %s.", myFloat));
+					writeln(format("Thanks for your number %s.", myFloat));
 				}
 			)
 		);
@@ -68,10 +65,11 @@ void main()
 				"Request an even integer",
 				{
 					int myEvenInt;
-					while(!request("Please, input an even integer: ", &myEvenInt, (int myInt){return myInt % 2 == 0;}))
-						nestedMenu.writeln("That is not an even integer.");
+					while(!request("Please, input an even integer: ", &myEvenInt,
+						  (int myInt){return myInt % 2 == 0;}))
+						writeln("That is not an even integer.");
 
-					nestedMenu.writeln(format("Thanks for the even integer %s", myEvenInt));
+					writeln(format("Thanks for the even integer %s", myEvenInt));
 				}
 			)
 		);
@@ -81,10 +79,10 @@ void main()
 				"Request a character",
 				{
 					char myChar;
-					while(!request!char("Please, input a character: ", &myChar))
-						nestedMenu.writeln("That is not a character. Just press a key and then ENTER, please.");
+					while(!request("Please, input a character: ", &myChar))
+						writeln("That is not a character. Just press a key and then ENTER, please.");
 
-					nestedMenu.writeln(format("Thanks for your character %s.", myChar));
+					writeln(format("Thanks for your character %s.", myChar));
 				}
 			)
 		);

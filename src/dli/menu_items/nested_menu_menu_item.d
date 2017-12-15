@@ -1,6 +1,6 @@
 module dli.menu_items.nested_menu_menu_item;
 
-import dli.menu;
+import dli.text_menu : MenuItem;
 import dli.i_text_menu;
 
 /// Shortcut class to ease nesting menus

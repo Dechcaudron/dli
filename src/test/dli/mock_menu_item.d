@@ -1,6 +1,6 @@
 module test.dli.mock_menu_item;
 
-import dli.menu : MenuItem;
+import dli.text_menu : MenuItem;
 
 ///
 public class MockMenuItem : MenuItem

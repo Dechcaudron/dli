@@ -1,4 +1,4 @@
-module dli.menu;
+module dli.text_menu;
 
 public import dli.menu_items.simple_menu_item;
 public import dli.display_scenario;
@@ -16,6 +16,9 @@ import std.string : format;
 
 package static ITextMenu activeTextMenu;
 
+private enum printItemKeyKeyword = "%item_key%"; /// String to be used in place of the MenuItem identifier in itemPrintFormat
+private enum printItemTextKeyword = "%item_text%"; /// String to be used in place of the MenuItem text in itemPrintFormat
+
 ///
 public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
 {
@@ -32,9 +35,7 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
     private string _onMenuExitMsg = "Exiting menu...";
     private string _onInvalidItemSelectedMsg = "Please, select a valid item from the list.";
 
-    public static enum printItemIdKeyword = "_$_ID_$_"; /// String to be used in place of the MenuItem identifier in itemPrintFormat
-    public static enum printItemTextKeyword = "_$_TEXT_$_"; /// String to be used in place of the MenuItem text in itemPrintFormat
-    private string _itemPrintFormat = printItemIdKeyword ~ " - " ~ printItemTextKeyword; /// Stores the format in which menu items are printed to the output stream
+    private string _itemPrintFormat = printItemKeyKeyword ~ " - " ~ printItemTextKeyword; /// Stores the format in which menu items are printed to the output stream
 
     private Status _status = Status.Stopped;
     private static ITextMenu parentTextMenu;
@@ -87,7 +88,11 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
         menuItems[key] = item;
     }
 
-     /// Starts the menu. This method can only be called if the menu is stopped.
+    /** Starts the menu.
+
+        Throws: InvalidMenuStatusException if the menu was not stopped prior
+                to calling this method.
+    */
     public override void run()
     {
         enforce!InvalidMenuStatusException(_status == Status.Stopped,
@@ -159,7 +164,7 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
         {
             import std.string : replace;
 
-            string toBePrinted = _itemPrintFormat.replace(printItemIdKeyword, key).
+            string toBePrinted = _itemPrintFormat.replace(printItemKeyKeyword, key).
                                 replace(printItemTextKeyword, itemText);
             outputStream.writeln(toBePrinted);
         }

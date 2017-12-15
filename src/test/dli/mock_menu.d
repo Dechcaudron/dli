@@ -1,6 +1,6 @@
 module test.dli.mock_menu;
 
-import dli.menu;
+import dli.text_menu;
 import dli.input_string_stream;
 import dli.output_string_stream;
 

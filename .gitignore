@@ -25,3 +25,6 @@ docs/
 
 # Code coverage
 *.lst
+
+# Backup files
+*.bak
