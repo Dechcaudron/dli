@@ -16,8 +16,8 @@ import std.string : format;
 
 package static ITextMenu activeTextMenu;
 
-private enum printItemKeyKeyword = "%item_key%"; /// String to be used in place of the MenuItem identifier in itemPrintFormat
-private enum printItemTextKeyword = "%item_text%"; /// String to be used in place of the MenuItem text in itemPrintFormat
+private enum PrintItemKeyKeyword = "%item_key%"; /// String to be used in place of the MenuItem identifier in itemPrintFormat
+private enum PrintItemTextKeyword = "%item_text%"; /// String to be used in place of the MenuItem text in itemPrintFormat
 
 ///
 public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
@@ -35,10 +35,10 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
     private string _onMenuExitMsg = "Exiting menu...";
     private string _onInvalidItemSelectedMsg = "Please, select a valid item from the list.";
 
-    private string _itemPrintFormat = printItemKeyKeyword ~ " - " ~ printItemTextKeyword; /// Stores the format in which menu items are printed to the output stream
+    private string _itemPrintFormat = PrintItemKeyKeyword ~ " - " ~ PrintItemTextKeyword; /// Stores the format in which menu items are printed to the output stream
 
     private Status _status = Status.Stopped;
-    private static ITextMenu parentTextMenu;
+    private static ITextMenu parentTextMenu; // TODO: this is pathetic. Stack menus with a LIFO
 
     @property
     protected Status status()
@@ -164,8 +164,8 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
         {
             import std.string : replace;
 
-            string toBePrinted = _itemPrintFormat.replace(printItemKeyKeyword, key).
-                                replace(printItemTextKeyword, itemText);
+            string toBePrinted = _itemPrintFormat.replace(PrintItemKeyKeyword, key).
+                                replace(PrintItemTextKeyword, itemText);
             outputStream.writeln(toBePrinted);
         }
 
