@@ -13,10 +13,9 @@ public class IndexMenu(inputStreamT, outputStreamT) : TextMenu!(inputStreamT, ou
 {
     private size_t highestMenuItemIndex;
 
-    public this(inputStreamT inStream, outputStreamT outStream)
+    public this(inputStreamT inputStream, outputStreamT outputStream)
     {
-        inputStream = inStream;
-        outputStream = outStream;
+        super(inputStream, outputStream);
     }
 
     public override void addItem(MenuItem item, size_t key)

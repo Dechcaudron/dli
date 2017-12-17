@@ -1,7 +1,4 @@
-import dli.helper_functions;
-import dli.index_menu;
-import dli.menu_items.simple_menu_item;
-import dli.menu_items.nested_menu_menu_item;
+import dli;
 
 import std.string;
 
@@ -9,34 +6,34 @@ void main()
 {
 	auto mainMenu = createIndexMenu();
 	mainMenu.welcomeMsg = "Welcome to the demo menu. Please, choose an option below:";
-	mainMenu.onMenuExitMsg = "We hope you enjoyed the demo!";
+	mainMenu.onExit = {writeln("We hope you enjoyed the demo!");};
 
 	mainMenu.addItem(
-		createSimpleMenuItem(
+		new MenuItem(
 			"Write \"Hello world!\"",
 			{writeln("Hello world!");}
 		)
 	);
 
 	mainMenu.addItem(
-		createSimpleMenuItem(
+		new MenuItem(
 			"Change item printing style to something fancy",
 			{mainMenu.itemPrintFormat = "[%item_key%] => %item_text%";}
 		)
 	);
 
 	mainMenu.addItem(
-		createSimpleMenuItem(
+		new MenuItem(
 			"Change item printing style to something simple",
 			{mainMenu.itemPrintFormat = "%item_key% - %item_text%";}
 		)
 	);
 
-	auto uselessItem = createSimpleMenuItem("I do nothing", {});
+	auto uselessItem = new MenuItem("I do nothing", {});
 	mainMenu.addItem(uselessItem);
 
 	mainMenu.addItem(
-		createSimpleMenuItem(
+		new MenuItem(
 			"Toggle useless item",
 			{uselessItem.enabled = !uselessItem.enabled;}
 		)
@@ -48,7 +45,7 @@ void main()
 		nestedMenu.welcomeMsg = "Have a look at input support:";
 
 		nestedMenu.addItem(
-			createSimpleMenuItem(
+			new MenuItem(
 				"Request a number",
 				{
 					float myFloat;
@@ -61,7 +58,7 @@ void main()
 		);
 
 		nestedMenu.addItem(
-			createSimpleMenuItem(
+			new MenuItem(
 				"Request an even integer",
 				{
 					int myEvenInt;
@@ -75,7 +72,7 @@ void main()
 		);
 
 		nestedMenu.addItem(
-			createSimpleMenuItem(
+			new MenuItem(
 				"Request a character",
 				{
 					char myChar;

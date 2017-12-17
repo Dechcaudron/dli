@@ -12,15 +12,13 @@ public class MockMenu : TextMenu!(shared InputStringStream, shared OutputStringS
     /// Creates a MockMenu with its own input and output streams
     this()
     {
-        inputStream = new shared InputStringStream();
-        outputStream = new shared OutputStringStream();
+        super(new shared InputStringStream(), new shared OutputStringStream());
     }
 
     /// Creates a MockMenu that uses the input and output streams of the passed menu
     this(MockMenu mockMenu)
     {
-        inputStream = mockMenu.inputStream;
-        outputStream = mockMenu.outputStream;
+        super(mockMenu);
     }
 
     /// Mocks the writing of a line into the input stream

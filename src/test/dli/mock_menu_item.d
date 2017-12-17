@@ -17,11 +17,6 @@ public class MockMenuItem : MenuItem
     ///
     this(string displayString = "mockMenuItem", bool enabled = true)
     {
-        super(displayString, enabled);
-    }
-
-    protected override void execute()
-    {
-        _executed = true;
+        super(displayString, {_executed = true;}, enabled);
     }
 }

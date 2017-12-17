@@ -166,17 +166,13 @@ version(unittest)
     {
         auto menu = new MockMenu();
         immutable string confirmationAnswer = "_CONFIRM_"; // Just a random string   
+        bool confirmed;
 
-        class CustomMenuItem : MockMenuItem
-        {
-            protected override void execute()
+        auto item = new MenuItem("",
             {
-                if(requestConfirmation("", confirmationAnswer))
-                    super.execute();
+                confirmed = requestConfirmation("", confirmationAnswer);
             }
-        }
-
-        auto item = new CustomMenuItem();
+        );
 
         menu.addItem(item, 1);
 
@@ -185,40 +181,20 @@ version(unittest)
         menu.mock_writeExitRequest();
         menu.run();
 
-        assert(!item.executed);
+        assert(!confirmed);
 
         menu.mock_writeln("1");
         menu.mock_writeln(confirmationAnswer);
         menu.mock_writeExitRequest();
         menu.run();
 
-        assert(item.executed);
+        assert(confirmed);
     }
 
     @("requestConfirmation throws NoMenuRunningException if called directly")
     unittest
     {
         assertThrown!NoMenuRunningException(requestConfirmation("",""));
-    }
-
-    class SimpleMenuItem : MockMenuItem
-    {
-        void delegate() action;
-
-        this(typeof(action) action)
-        in
-        {
-            assert(action !is null);
-        }
-        body
-        {
-            this.action = action;
-        }
-
-        protected override void execute()
-        {
-            action();
-        }
     }
 
     static foreach (alias supportedType; requestSupportedTypes)
@@ -232,9 +208,10 @@ version(unittest)
             bool dataValid;
 
             menu.addItem(
-                new SimpleMenuItem(
-                    {dataValid = request("", &myData);}
-                ), 1
+                new MenuItem("",
+                             {dataValid = request("", &myData);}
+                            ),
+                1
             );
 
             enum supportedTypeIsConvertible(T) = is(supportedType : T);
@@ -319,11 +296,12 @@ version(unittest)
         auto menu = new MockMenu();
 
         menu.addItem(
-            new SimpleMenuItem(
-                {
-                    dataValid = request!int("", &myInt, (int a){return a % 2 == 0;}); // Only accepts even integers
-                }
-            ), 1
+            new MenuItem("",
+                         {
+                             dataValid = request!int("", &myInt, (int a){return a % 2 == 0;}); // Only accepts even integers
+                         }
+                        ),
+            1
         );
 
         menu.mock_writeln("1");

@@ -1,20 +1,26 @@
 module dli.text_menu;
 
-public import dli.menu_items.simple_menu_item;
 public import dli.display_scenario;
 import dli.exceptions.invalid_item_exception;
 import dli.exceptions.invalid_menu_status_exception;
 import dli.exceptions.invalid_key_exception;
 import dli.exceptions.no_menu_running_exception;
 import dli.i_text_menu;
+import dli.internal.lifo;
 
 import std.exception;
 import std.range.interfaces;
 import std.range.primitives;
 import std.typecons : Tuple, tuple;
 import std.string : format;
+import std.conv;
 
-package static ITextMenu activeTextMenu;
+package static Lifo!ITextMenu runningMenusStack;
+package static ITextMenu activeTextMenu()
+{
+    return !runningMenusStack.empty ? runningMenusStack.front :
+                                      null;
+}
 
 private enum PrintItemKeyKeyword = "%item_key%"; /// String to be used in place of the MenuItem identifier in itemPrintFormat
 private enum PrintItemTextKeyword = "%item_text%"; /// String to be used in place of the MenuItem text in itemPrintFormat
@@ -32,13 +38,11 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
 
     private string _promptMsg = "> "; // String to be printed before asking the user for input
     private string _onItemExecutedMsg = "\n"; // String to be printed after any menu item is executed. Generally, you will want this to be EOL.
-    private string _onMenuExitMsg = "Exiting menu...";
+    private void delegate() _onStart; /// Delegate to be called when the menu starts running;
+    private void delegate() _onExit; /// Delegate to be called when the menu exits
     private string _onInvalidItemSelectedMsg = "Please, select a valid item from the list.";
-
     private string _itemPrintFormat = PrintItemKeyKeyword ~ " - " ~ PrintItemTextKeyword; /// Stores the format in which menu items are printed to the output stream
-
     private Status _status = Status.Stopped;
-    private static ITextMenu parentTextMenu; // TODO: this is pathetic. Stack menus with a LIFO
 
     @property
     protected Status status()
@@ -49,25 +53,20 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
     mixin(generateMenuCustomizingSetter!string(__traits(identifier, _welcomeMsg)));
     mixin(generateMenuCustomizingSetter!DisplayScenario(__traits(identifier, _welcomeMsgDisplayScenario)));
     mixin(generateMenuCustomizingSetter!string(__traits(identifier, _promptMsg)));
-    mixin(generateMenuCustomizingSetter!string(__traits(identifier, _onMenuExitMsg)));
+    mixin(generateMenuCustomizingSetter!(void delegate())(__traits(identifier, _onStart)));
+    mixin(generateMenuCustomizingSetter!(void delegate())(__traits(identifier, _onExit)));
     mixin(generateMenuCustomizingSetter!string(__traits(identifier, _onInvalidItemSelectedMsg)));
     mixin(generateMenuCustomizingSetter!string(__traits(identifier, _itemPrintFormat)));
 
     /// Removes the menu item associated with key. If no item was associated with such key, nothing happens.
-    public void removeItem(keyT key)
+    public final void removeItem(keyT key)
     {
-        enforce!InvalidMenuStatusException(status is Status.Stopped,
-            "removeItem may not be called while the menu is running");
-
         menuItems.remove(key);
     }
 
     /// Removes all items from this menu.
-    public void removeAllItems()
+    public final void removeAllItems()
     {
-        enforce!InvalidMenuStatusException(status is Status.Stopped,
-            "removeAllItems may not be called while the menu is running.");
-
         menuItems.clear();
     }
 
@@ -79,8 +78,6 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
     }
     body
     {
-        enforce!InvalidMenuStatusException(status is Status.Stopped,
-            "addItem may not be called while the menu is running");
         enforce!InvalidKeyException(key !in menuItems,
             format("Tried to call addItem with key %s, but it is already in use.", key));
 
@@ -93,31 +90,33 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
         Throws: InvalidMenuStatusException if the menu was not stopped prior
                 to calling this method.
     */
-    public override void run()
+    public override final void run()
     {
         enforce!InvalidMenuStatusException(_status == Status.Stopped,
          "run may not be called while the menu is running.");
 
         try
         {
-            parentTextMenu = activeTextMenu;
-            activeTextMenu = this;
             _status = Status.Starting;
+
+            if (_onStart !is null)
+                _onStart();
+
+            runningMenusStack.put(this);
+
             /* Before actually starting the menu, we need to provide the user with a way to
                exit the menu. We create an ad hoc MenuItem for this purpose and add it here */
-            addExitMenuItem(createSimpleMenuItem("Exit", 
+            addExitMenuItem(new MenuItem("Exit", 
                 {
-                    writeln(_onMenuExitMsg);
-                    _status = Status.Stopping;}));
+                    _status = Status.Stopping;
+                }
+            ));
 
             _status = Status.Running;
 
-            while(_status == Status.Running)
+            while (_status == Status.Running)
             {
-                
-                
                 printWelcomeMsg();
-
                 printEnabledItems();
                 write(_promptMsg);
                 try
@@ -136,30 +135,43 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
             _status = Status.Stopping;
             // In order to leave things as they were prior to calling this method, the ad hoc MenuItem used to exit the menu is removed
             removeExitMenuItem();
+            if (_onExit !is null)
+                _onExit();
+
+            runningMenusStack.pop();
             _status = Status.Stopped;
-            activeTextMenu = parentTextMenu;
         }
     }
 
-    public override void writeln(string s)
+    public override final void writeln(string s)
     {
         outputStream.writeln(s);
     }
 
-    public override void write(string s)
+    public override final void write(string s)
     {
         outputStream.write(s);
     }
 
-    public override string readln()
+    public override final string readln()
     {
         return inputStream.readln();
     }
 
+    protected this(inputStreamT inputStream, outputStreamT outputStream)
+    {
+        this.inputStream = inputStream;
+        this.outputStream = outputStream;   
+    }
+
+    protected this(textMenuT)(textMenuT streamSource)
+    {
+        this.inputStream = streamSource.inputStream;
+        this.outputStream = streamSource.outputStream;
+    }
+
     private void printEnabledItems()
     {
-        import std.conv : to;
-
         void printItem(string key, string itemText)
         {
             import std.string : replace;
@@ -178,7 +190,6 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
     {
         import std.string : strip;
         import std.format : format;
-        import std.conv : to, ConvException;
 
         // Note that we are calling strip here to remove the EOL chars, but at some point we may want to allow
         // someone to type leading or trailing whitespaces which they don't want removed. This will do for now.
@@ -248,7 +259,6 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
     body
     {
         import std.uni : toUpper;
-        import std.conv : to;
 
         string propertyIdentifier = fieldName[1..$];
 
@@ -261,17 +271,16 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
     }
 }
 
+
 ///
-public abstract class MenuItem
+public class MenuItem
 {
     /// Description of this item printed by the menu
     immutable string displayString;
 
     protected ITextMenu textMenu;
-    private string confirmationRequestMsg;
-    private string confirmationAnswer;
-
     private bool _enabled;
+    private void delegate() action;
 
     /// Whether this item is enabled or not.
     @property
@@ -288,13 +297,35 @@ public abstract class MenuItem
     }
 
     ///
-    this(string displayString, bool enabled)
+    this(string displayString, void delegate() action, bool enabled = true)
+    in
+    {
+        assert(displayString !is null);
+        assert(action !is null);
+    }
+    do
     {
         this.displayString = displayString;
+        this.action = action;
         this.enabled = enabled;
     }
 
-    protected abstract void execute();
+    ///
+    this(string displayString, void function() action, bool enabled = true)
+    in
+    {
+        assert(displayString !is null);
+        assert(action !is null);
+    }
+    do
+    {
+        this(displayString, {action();}, enabled);
+    }
+
+    private void execute()
+    {
+        action();
+    }
 
     /**
         Binds this MenuItem to a specific ITextMenu. This method may be only
@@ -320,63 +351,76 @@ public abstract class MenuItem
 // TESTS
 version(unittest)
 {
-    import test.dli.mock_menu;
-    import test.dli.mock_menu_item;
+    import dli.input_string_stream;
+    import dli.output_string_stream;
 
-    @("Menu allows execution of items")
+    private class TextMenuTestImplementation : TextMenu!(shared InputStringStream, shared OutputStringStream, int)
+    {
+        private enum int exitItemKey = -1;
+
+        this(shared InputStringStream inputStream = new shared InputStringStream(), 
+             shared OutputStringStream outputStream = new shared OutputStringStream())
+        {
+            super(inputStream, outputStream);
+        }
+
+        override void addItem(MenuItem item, int key)
+        {
+            if (status == Status.Stopped)
+            {
+                enforce(key != exitItemKey, 
+                        "Tried to add an item with key associated to " ~
+                        "the exit item in the test implementation"
+                       );
+            }
+            else
+            {
+                enforce(status == Status.Starting);
+                enforce(key == exitItemKey);
+            }
+
+            super.addItem(item, key);
+        }
+
+        override void addExitMenuItem(MenuItem item)
+        {
+            addItem(item, exitItemKey);
+        }
+
+        override void removeExitMenuItem()
+        {
+            removeItem(exitItemKey);
+        }
+    }
+
+    @("TextMenu calls onStart and onExit callbacks")
     unittest
     {
-        auto menu = new MockMenu();
-        auto item = new MockMenuItem();
+        auto inputStream = new shared InputStringStream();
+        auto menu = new TextMenuTestImplementation(inputStream);
+        bool onStartCallbackExecuted;
+        bool onExitCallbackExecuted;
 
-        menu.addItem(item, 1);
-        menu.mock_writeln("1");
-        menu.mock_writeExitRequest();
+        menu.onStart = {onStartCallbackExecuted = true;};
+        menu.onExit = {onExitCallbackExecuted = true;};
+        
+        // TODO: check in the middle of menu execution that onStart
+        // has executed and onExit has not
+
+        inputStream.appendLine(to!string(TextMenuTestImplementation.exitItemKey));
         menu.run();
 
-        assert(item.executed);
+        assert(onStartCallbackExecuted);
+        assert(onExitCallbackExecuted);
+
     }
 
-    @("Menu does not allow items to be added or removed while running")
+    @("TextMenu does not allow two items to be added with the same key")
     unittest
     {
-        // TODO: this should not depend on SimpleMenuItem
-        import dli.menu_items.simple_menu_item : SimpleMenuItem;
-
-        auto menu = new MockMenu();
-        auto addItemItem = createSimpleMenuItem("", 
-            {
-                menu.addItem(new MockMenuItem(), 1);
-            });
-        auto removeItemItem = createSimpleMenuItem("",
-            {
-                menu.removeItem(1);
-            });
-        auto removeAllItemsItem = createSimpleMenuItem("",
-            {
-                menu.removeAllItems();
-            });
-
-        menu.addItem(addItemItem, 1);
-        menu.addItem(removeItemItem, 2);
-        menu.addItem(removeAllItemsItem, 3);
-
-        menu.mock_writeln("1");
-        assertThrown!InvalidMenuStatusException(menu.run());
-
-        menu.mock_writeln("2");
-        assertThrown!InvalidMenuStatusException(menu.run());
-
-        menu.mock_writeln("3");
-        assertThrown!InvalidMenuStatusException(menu.run());
-    }
-
-    @("Menu does not allow two items to be added with the same key")
-    unittest
-    {
-        auto menu = new MockMenu();
-        auto item1 = new MockMenuItem();
-        auto item2 = new MockMenuItem();
+        auto menu = new TextMenuTestImplementation();
+        auto item1 = new MenuItem("", {});
+        auto item2 = new MenuItem("", {});
 
         menu.addItem(item1, 1);
         
@@ -390,13 +434,33 @@ version(unittest)
         import std.exception : assertThrown;
         import dli.exceptions.item_bound_exception : ItemBoundException;
 
-        auto menu1 = new MockMenu();
-        auto menu2 = new MockMenu();
-        auto item = new MockMenuItem();
+        auto menu1 = new TextMenuTestImplementation();
+        auto menu2 = new TextMenuTestImplementation();
+        auto item = new MenuItem("",{});
 
         menu1.addItem(item, 1); // item is now bound to menu1
         
         assertThrown!ItemBoundException(menu1.addItem(item, 2));
         assertThrown!ItemBoundException(menu2.addItem(item, 1));
+    }
+
+    @("MenuItem calls actions when selected by the user in a TextMenu")
+    unittest
+    {
+        auto inputStream = new shared InputStringStream();
+        auto menu = new TextMenuTestImplementation(inputStream);
+        bool actionCalled;
+        void foo()
+        {
+            actionCalled = true;
+        }
+        auto item = new MenuItem("", &foo);
+
+        menu.addItem(item, 1);
+        inputStream.appendLine("1");
+        inputStream.appendLine(to!string(TextMenuTestImplementation.exitItemKey));
+        menu.run();
+
+        assert(actionCalled);
     }
 }

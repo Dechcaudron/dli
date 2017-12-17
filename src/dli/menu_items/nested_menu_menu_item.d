@@ -6,8 +6,6 @@ import dli.i_text_menu;
 /// Shortcut class to ease nesting menus
 public class NestedMenuMenuItem : MenuItem
 {
-    protected ITextMenu nestedMenu;
-
     /// Create a new MenuItem that will run nestedMenu when executed
     public this(ITextMenu nestedMenu, string displayString, bool enabled = true)
     in
@@ -15,15 +13,9 @@ public class NestedMenuMenuItem : MenuItem
         assert(nestedMenu !is null);
         assert(displayString !is null);
     }
-    body
+    do
     {
-        super(displayString, enabled);
-        this.nestedMenu = nestedMenu;
-    }
-
-    protected override void execute()
-    {
-        nestedMenu.run();
+        super(displayString, {nestedMenu.run();}, enabled);
     }
 }
 
