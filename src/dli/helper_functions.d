@@ -1,5 +1,6 @@
 module dli.helper_functions;
 
+import dli.internal.to_wchar;
 import dli.exceptions.no_menu_running_exception;
 import dli.text_menu;
 import std.conv;
@@ -46,10 +47,14 @@ private alias requestSupportedTypes = AliasSeq!(
     int,
     long,
     char,
+    //wchar,
+    dchar,
     float,
     double,
     real,
-    string
+    string,
+    wstring,
+    dstring
 );
 
 /**
@@ -109,6 +114,68 @@ body
     {
     }
 
+    return false;
+}
+
+// Specialization to allow use of wchar
+/// ditto
+public bool request(dataT : wchar, restrictionCheckerT)
+            (string requestMsg,
+            dataT* dataDestination,
+            restrictionCheckerT restriction = (dataT foo){return true;}, // No restrictions by default
+            )
+if(staticIndexOf!(dataT, requestSupportedTypes) != -1 &&
+   isCallable!restrictionCheckerT &&
+   Parameters!restrictionCheckerT.length == 1 &&
+   is(Parameters!restrictionCheckerT[0] : dataT) &&
+   is(ReturnType!restrictionCheckerT == bool) &&
+   is(dataT == wchar))
+in
+{
+    assert(requestMsg !is null);
+    assert(dataDestination !is null);
+    assert(restriction !is null);
+}
+body
+{
+    wstring input;
+    if (request!wstring(requestMsg, &input) && 
+        input.length == 1)
+    {
+        *dataDestination = input[0];
+        return true;
+    }
+    return false;
+}
+
+// Specialization to allow use of dchar
+/// ditto
+public bool request(dataT : dchar, restrictionCheckerT)
+            (string requestMsg,
+            dataT* dataDestination,
+            restrictionCheckerT restriction = (dataT foo){return true;}, // No restrictions by default
+            )
+if(staticIndexOf!(dataT, requestSupportedTypes) != -1 &&
+   isCallable!restrictionCheckerT &&
+   Parameters!restrictionCheckerT.length == 1 &&
+   is(Parameters!restrictionCheckerT[0] : dataT) &&
+   is(ReturnType!restrictionCheckerT == bool) &&
+   is(dataT == dchar))
+in
+{
+    assert(requestMsg !is null);
+    assert(dataDestination !is null);
+    assert(restriction !is null);
+}
+body
+{
+    dstring input;
+    if (request!dstring(requestMsg, &input) && 
+        input.length == 1)
+    {
+        *dataDestination = input[0];
+        return true;
+    }
     return false;
 }
 
@@ -216,28 +283,57 @@ version(unittest)
 
             enum supportedTypeIsConvertible(T) = is(supportedType : T);
 
-            // The user inputs a character
+            // The user inputs an ASCII character
             enum charInput = "a";
             menu.mock_writeln("1");
             menu.mock_writeln(charInput);
             menu.mock_writeExitRequest();
             menu.run();
 
-            enum charIsValidInput = is(supportedType == char) || 
-                                    is(supportedType == string);
+            enum charIsValidInput = isSomeChar!supportedType ||
+                                    isSomeString!supportedType;
 
             assert(dataValid == charIsValidInput);
             static if (charIsValidInput)
                 assert(myData == to!supportedType(charInput));
 
+            // The user inputs a double-byte Unicode character
+            enum wcharInput = "é";
+            menu.mock_writeln("1");
+            menu.mock_writeln(wcharInput);
+            menu.mock_writeExitRequest();
+            menu.run();
+
+            enum wcharIsValidInput = is(supportedType == wchar) ||
+                                     is(supportedType == dchar) ||
+                                     isSomeString!supportedType;
+
+            assert(dataValid == wcharIsValidInput);
+            static if (wcharIsValidInput)
+                assert(myData == to!supportedType(wcharInput));
+
+            // The user inputs a quadruple-byte Unicode character
+            enum dcharInput = "🙂";
+            menu.mock_writeln("1");
+            menu.mock_writeln(dcharInput);
+            menu.mock_writeExitRequest();
+            menu.run();
+
+            enum dcharIsValidInput = is(supportedType == dchar) ||
+                                     isSomeString!supportedType;
+
+            assert(dataValid == dcharIsValidInput);
+            static if (dcharIsValidInput)
+                assert(myData == to!supportedType(dcharInput));
+
             // The user inputs a general string
-            enum stringInput = "Yo I'm a string";
+            enum stringInput = "This is English. Esto es español. 這是中國人.";
             menu.mock_writeln("1");
             menu.mock_writeln(stringInput);
             menu.mock_writeExitRequest();
             menu.run();
 
-            enum stringIsValidInput = is(supportedType == string);
+            enum stringIsValidInput = isSomeString!supportedType;
 
             assert(dataValid == stringIsValidInput);
             static if (stringIsValidInput)
@@ -251,7 +347,7 @@ version(unittest)
             menu.run();
 
             enum fractionalIsValidInput = isFloatingPoint!supportedType || 
-                                          is(supportedType == string);
+                                          isSomeString!supportedType;
 
             dataValid.shouldEqual(fractionalIsValidInput);
             static if (fractionalIsValidInput)
@@ -265,7 +361,7 @@ version(unittest)
             menu.run();
 
             enum positiveIntegerIsValidInput = isNumeric!supportedType ||
-                                               is(supportedType == string);
+                                               isSomeString!supportedType;
 
             dataValid.shouldEqual(positiveIntegerIsValidInput);
             static if (positiveIntegerIsValidInput)
@@ -279,7 +375,7 @@ version(unittest)
             menu.run();
 
             enum negativeIntegerIsValidInput = isSigned!supportedType ||
-                                               is(supportedType == string);
+                                               isSomeString!supportedType;
 
             dataValid.shouldEqual(negativeIntegerIsValidInput);
             static if (negativeIntegerIsValidInput)

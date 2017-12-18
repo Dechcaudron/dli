@@ -75,7 +75,7 @@ void main()
 			new MenuItem(
 				"Request a character",
 				{
-					char myChar;
+					wchar myChar;
 					while(!request("Please, input a character: ", &myChar))
 						writeln("That is not a character. Just press a key and then ENTER, please.");
 
