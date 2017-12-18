@@ -5,14 +5,14 @@ import dli.text_menu;
 import std.conv;
 import std.exception;
 import std.meta;
-import std.string : strip, format;
+import std.string : chop;
 import std.traits;
 
 /** 
     Helper method to require a string confirmation inside an action item.
 
-    The user input is passed to std.string.strip before it is compared
-    to requiredAnswer.
+    Returns: whether or not the user input, stripped of line terminators,
+             exactly matches requiredAnswer.
 
     Throws: NoMenuRunningException if no menu is running in the calling thread.
 */
@@ -32,7 +32,7 @@ body
 
     string answer;
     return request!string(requestMsg, &answer) &&
-           answer.strip() == requiredAnswer;
+           answer == requiredAnswer;
 }
 
 /// Types supported by the helper 'request' method
@@ -55,7 +55,7 @@ private alias requestSupportedTypes = AliasSeq!(
 /**
     Helper method to require data with type and possible additional restrictions.
 
-    The user input is passed to std.string.strip before conversion is attempted.
+    The user input is stripped of the line terminator before conversion is attempted.
 
     Params: requestMsg      = message to write out when asking for data.
             dataDestination = pointer where the data should be stored,
@@ -97,7 +97,7 @@ body
     write(requestMsg);
     try
     {
-        string input = activeTextMenu.readln().strip();
+        string input = activeTextMenu.readln().chop();
         dataT data = to!dataT(input);
         if(restriction(data))
         {
@@ -105,7 +105,7 @@ body
             return true;
         }
     }
-    catch(ConvException e)
+    catch(Exception e)
     {
     }
 
@@ -287,6 +287,27 @@ version(unittest)
         }
     }
     
+    @("request!char accepts whitespace")
+    unittest
+    {
+        auto menu = new MockMenu();
+        bool dataValid;
+        char inputChar;
+        auto item = new MenuItem("",
+            {
+                dataValid = request!char("", &inputChar);
+            }
+        );
+
+        menu.addItem(item, 1);
+        menu.mock_writeln("1");
+        menu.mock_writeln(" ");
+        menu.mock_writeExitRequest();
+        menu.run();
+
+        assert(dataValid);
+        assert(inputChar == ' ');
+    }
 
     @("request can take restrictions")
     unittest
