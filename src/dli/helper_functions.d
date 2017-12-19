@@ -47,7 +47,7 @@ private alias requestSupportedTypes = AliasSeq!(
     int,
     long,
     char,
-    //wchar,
+    wchar,
     dchar,
     float,
     double,
