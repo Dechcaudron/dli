@@ -1,6 +1,6 @@
 module dli.text_menu;
 
-public import dli.display_scenario;
+import dli.display_scenario;
 import dli.exceptions.invalid_item_exception;
 import dli.exceptions.invalid_menu_status_exception;
 import dli.exceptions.invalid_key_exception;

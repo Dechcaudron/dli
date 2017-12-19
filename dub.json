@@ -7,6 +7,10 @@
 	"copyright": "Copyright © 2017, Héctor Barreras Almarcha",
 	"license": "GPL-3.0",
 	"targetPath": "bin",
+	"importPaths": [
+		"src",
+		"../phobos"
+	],
 	"configurations": [
 		{
 			"name": "demo",

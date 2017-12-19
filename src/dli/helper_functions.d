@@ -1,6 +1,5 @@
 module dli.helper_functions;
 
-import dli.internal.to_wchar;
 import dli.exceptions.no_menu_running_exception;
 import dli.text_menu;
 import std.conv;
@@ -298,7 +297,7 @@ version(unittest)
                 assert(myData == to!supportedType(charInput));
 
             // The user inputs a double-byte Unicode character
-            enum wcharInput = "é";
+            enum wcharInput = "á";
             menu.mock_writeln("1");
             menu.mock_writeln(wcharInput);
             menu.mock_writeExitRequest();

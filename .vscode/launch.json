@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Debug demo app",
+            "type": "gdb",
+            "request": "launch",
+            "target": "./bin/dli",
+            "cwd": "${workspaceRoot}"
+        },
+        {
             "name": "Debug tests",
             "type": "gdb",
             "request": "launch",
