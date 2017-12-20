@@ -46,7 +46,7 @@ private alias requestSupportedTypes = AliasSeq!(
     int,
     long,
     char,
-    wchar,
+    // wchar, not supported until to!(wchar, string) is available in Phobos
     dchar,
     float,
     double,
@@ -113,68 +113,6 @@ body
     {
     }
 
-    return false;
-}
-
-// Specialization to allow use of wchar
-/// ditto
-public bool request(dataT : wchar, restrictionCheckerT)
-            (string requestMsg,
-            dataT* dataDestination,
-            restrictionCheckerT restriction = (dataT foo){return true;}, // No restrictions by default
-            )
-if(staticIndexOf!(dataT, requestSupportedTypes) != -1 &&
-   isCallable!restrictionCheckerT &&
-   Parameters!restrictionCheckerT.length == 1 &&
-   is(Parameters!restrictionCheckerT[0] : dataT) &&
-   is(ReturnType!restrictionCheckerT == bool) &&
-   is(dataT == wchar))
-in
-{
-    assert(requestMsg !is null);
-    assert(dataDestination !is null);
-    assert(restriction !is null);
-}
-body
-{
-    wstring input;
-    if (request!wstring(requestMsg, &input) && 
-        input.length == 1)
-    {
-        *dataDestination = input[0];
-        return true;
-    }
-    return false;
-}
-
-// Specialization to allow use of dchar
-/// ditto
-public bool request(dataT : dchar, restrictionCheckerT)
-            (string requestMsg,
-            dataT* dataDestination,
-            restrictionCheckerT restriction = (dataT foo){return true;}, // No restrictions by default
-            )
-if(staticIndexOf!(dataT, requestSupportedTypes) != -1 &&
-   isCallable!restrictionCheckerT &&
-   Parameters!restrictionCheckerT.length == 1 &&
-   is(Parameters!restrictionCheckerT[0] : dataT) &&
-   is(ReturnType!restrictionCheckerT == bool) &&
-   is(dataT == dchar))
-in
-{
-    assert(requestMsg !is null);
-    assert(dataDestination !is null);
-    assert(restriction !is null);
-}
-body
-{
-    dstring input;
-    if (request!dstring(requestMsg, &input) && 
-        input.length == 1)
-    {
-        *dataDestination = input[0];
-        return true;
-    }
     return false;
 }
 
