@@ -1,8 +1,8 @@
 module test.dli.mock_menu;
 
 import dli.text_menu;
-import dli.input_string_stream;
-import dli.output_string_stream;
+import dli.string_stream.input_string_stream;
+import dli.string_stream.output_string_stream;
 
 ///
 public class MockMenu : TextMenu!(shared InputStringStream, shared OutputStringStream, size_t)

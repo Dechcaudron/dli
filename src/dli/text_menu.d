@@ -155,7 +155,8 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
 
     public override final string readln()
     {
-        return inputStream.readln();
+        string line = inputStream.readln();
+        return line !is null ? line : "";
     }
 
     protected this(inputStreamT inputStream, outputStreamT outputStream)
@@ -351,8 +352,8 @@ public class MenuItem
 // TESTS
 version(unittest)
 {
-    import dli.input_string_stream;
-    import dli.output_string_stream;
+    import dli.string_stream.input_string_stream;
+    import dli.string_stream.output_string_stream;
 
     private class TextMenuTestImplementation : TextMenu!(shared InputStringStream, shared OutputStringStream, int)
     {
@@ -426,6 +427,23 @@ version(unittest)
         
         assertThrown!InvalidKeyException(menu.addItem(item1, 1));
         assertThrown!InvalidKeyException(menu.addItem(item2, 1));
+    }
+
+    @("TextMenu.readln returns what is found before an EOF character, " ~
+      "an empty string if it is the first character in the line")
+    unittest
+    {
+        auto inputStream = new shared InputStringStream();
+        auto menu = new TextMenuTestImplementation(inputStream);
+
+        inputStream.append("hello" ~ EOF);
+        assert(menu.readln() == "hello");
+
+        auto inputStream2 = new shared InputStringStream();
+        auto menu2 = new TextMenuTestImplementation(inputStream2);
+
+        inputStream2.append("" ~ EOF);
+        assert(menu.readln() == "");
     }
 
     @("MenuItem cannot be added to a menu twice")

@@ -71,8 +71,8 @@ public auto createIndexMenu(inputStreamT, outputStreamT)(inputStreamT inStream, 
 // TESTS
 version(unittest)
 {
-    import dli.input_string_stream;
-    import dli.output_string_stream;
+    import dli.string_stream.input_string_stream;
+    import dli.string_stream.output_string_stream;
     import test.dli.mock_menu_item;
 
     @("Test IndexMenu.addItem(MenuItem) properly places items")

@@ -5,7 +5,7 @@ import dli.text_menu;
 import std.conv;
 import std.exception;
 import std.meta;
-import std.string : chop;
+import std.string : chomp;
 import std.traits;
 
 /** 
@@ -101,7 +101,7 @@ body
     write(requestMsg);
     try
     {
-        string input = activeTextMenu.readln().chop();
+        string input = activeTextMenu.readln().chomp();
         dataT data = to!dataT(input);
         if(restriction(data))
         {

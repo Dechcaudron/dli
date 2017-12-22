@@ -1,4 +1,4 @@
-module dli.output_string_stream;
+module dli.string_stream.output_string_stream;
 
 public shared class OutputStringStream
 {
