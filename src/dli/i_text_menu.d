@@ -21,9 +21,5 @@ public interface ITextMenu
     }
 
     /// Reads a line from the input of the menu
-    string readln()
-    out(s)
-    {
-        assert(s !is null);
-    }
+    string readln();
 }

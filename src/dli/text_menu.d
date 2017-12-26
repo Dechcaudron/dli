@@ -4,7 +4,6 @@ import dli.display_scenario;
 import dli.exceptions.invalid_item_exception;
 import dli.exceptions.invalid_menu_status_exception;
 import dli.exceptions.invalid_key_exception;
-import dli.exceptions.no_menu_running_exception;
 import dli.i_text_menu;
 import dli.internal.lifo;
 
@@ -155,8 +154,7 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
 
     public override final string readln()
     {
-        string line = inputStream.readln();
-        return line !is null ? line : "";
+        return inputStream.readln();
     }
 
     protected this(inputStreamT inputStream, outputStreamT outputStream)
@@ -342,8 +340,9 @@ public class MenuItem
         import dli.exceptions.item_bound_exception : ItemBoundException;
         import std.string : format;
 
-        enforce!ItemBoundException(this.textMenu is null, format("Cannot bind MenuItem %s to %s. It is already bound to %s",
-                                                        this, textMenu, this.textMenu));
+        enforce!ItemBoundException(this.textMenu is null, 
+                                   format("Cannot bind MenuItem %s to %s. It is already bound to %s",
+                                   this, textMenu, this.textMenu));
 
         this.textMenu = textMenu;
     }
@@ -429,21 +428,15 @@ version(unittest)
         assertThrown!InvalidKeyException(menu.addItem(item2, 1));
     }
 
-    @("TextMenu.readln returns what is found before an EOF character, " ~
-      "an empty string if it is the first character in the line")
+    @("TextMenu does not crash if EOF is reached when asking for item key")
     unittest
     {
         auto inputStream = new shared InputStringStream();
         auto menu = new TextMenuTestImplementation(inputStream);
 
-        inputStream.append("hello" ~ EOF);
-        assert(menu.readln() == "hello");
-
-        auto inputStream2 = new shared InputStringStream();
-        auto menu2 = new TextMenuTestImplementation(inputStream2);
-
-        inputStream2.append("" ~ EOF);
-        assert(menu.readln() == "");
+        inputStream.append("" ~ eof);
+        inputStream.appendLine("-1");
+        menu.run();
     }
 
     @("MenuItem cannot be added to a menu twice")

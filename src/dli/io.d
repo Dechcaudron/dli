@@ -1,20 +1,20 @@
-module dli.helper_functions;
+module dli.io;
 
-import dli.exceptions.no_menu_running_exception;
 import dli.text_menu;
 import std.conv;
 import std.exception;
 import std.meta;
+import std.stdio : stdin, stdout;
 import std.string : chomp;
 import std.traits;
 
 /** 
-    Helper method to require a string confirmation inside an action item.
+    Requests a text confirmation from the user.
+    If the calling thread is running an `ITextMenu`, it will handle
+    the input/output. Otherwise, `stdin` and `stdout` are used.
 
     Returns: whether or not the user input, stripped of line terminators,
              exactly matches requiredAnswer.
-
-    Throws: NoMenuRunningException if no menu is running in the calling thread.
 */
 public bool requestConfirmation(string requestMsg, string requiredAnswer)
 in
@@ -26,13 +26,8 @@ body
 {
     import std.string : strip;
 
-    enforce!NoMenuRunningException(activeTextMenu !is null,
-                                   "requestConfirmation needs a running menu " ~
-                                   "from which to ask for confirmation");
-
     string answer;
-    return request!string(requestMsg, &answer) &&
-           answer == requiredAnswer;
+    return request!string(requestMsg, &answer, (string s){return s == requiredAnswer;});
 }
 
 /// Types supported by the helper 'request' method
@@ -57,23 +52,22 @@ private alias requestSupportedTypes = AliasSeq!(
 );
 
 /**
-    Helper method to require data with type and possible additional restrictions.
-
-    The user input is stripped of the line terminator before conversion is attempted.
+    Requests data with the possibility of adding restrictions.
+    User input is stripped of the line terminator before conversion is attempted.
+    If an `ITextMenu` is running in the calling thread, it will handle the
+    input/output. Otherwise, `stdin` and `stdout` are used.
 
     Params: requestMsg      = message to write out when asking for data.
-            dataDestination = pointer where the data should be stored,
-                              if the input is valid.
+            dataDestination = pointer where the input data is to be stored,
+                              if the input can be converted and satifsties 
+                              restriction.
             restriction     = a callable item that takes a single dataT argument
                               and returns whether it is valid or not. Use it to
                               add additional restrictions onto the data being
                               requested.
-
     
-    Returns: whether or not the input data is valid. If false, no writing has been
+    Returns: whether or not the input data is valid. If `false`, no writing has been
     performed into dataDestination.
-
-    Throws: NoMenuRunningException if no menu is running in the calling thread.
 */
 public bool request(dataT, restrictionCheckerT)
             (string requestMsg,
@@ -93,15 +87,20 @@ in
 }
 body
 {
-    enforce!NoMenuRunningException(activeTextMenu !is null,
-                                   "'request' needs a running menu " ~
-                                   "from which to ask for data. " ~
-                                   "Are you calling it from outside a MenuItem?");
+    string input;
+    if(activeTextMenu is null)
+    {
+        stdout.write(requestMsg);
+        input = stdin.readln().chomp();
+    }
+    else
+    {
+        activeTextMenu.write(requestMsg);
+        input = activeTextMenu.readln().chomp();
+    }
 
-    write(requestMsg);
     try
     {
-        string input = activeTextMenu.readln().chomp();
         dataT data = to!dataT(input);
         if(restriction(data))
         {
@@ -117,11 +116,10 @@ body
 }
 
 /**
-    Helper method to write to the output string of the currently running menu.
+    Writes s to the `ITextMenu` currently running in the calling thread,
+    or to `stdout` is none is running.
 
     Params: s = string to write.
-
-    Throws: NoMenuRunningException if no menu is running in the calling thread.
 */
 public void write(string s)
 in
@@ -130,19 +128,17 @@ in
 }
 body
 {
-    enforce!NoMenuRunningException(activeTextMenu !is null,
-                                   "'write' needs a running menu " ~
-                                   "from which to write");
-    activeTextMenu.write(s);
+    if(activeTextMenu is null)
+        stdout.write(s);
+    else
+        activeTextMenu.write(s);
 }
 
 /**
-    Helper method to write to the output string of the currently running menu,
-    plus an end-of-line sequence.
+    Writes s, plus a line terminator, to the `ITextMenu` currently
+    running in the calling thread, or to `stdout` if none is running.
 
     Params: s = string to write.
-
-    Throws: NoMenuRunningException if no menu is running in the calling thread.
 */
 public void writeln(string s)
 in
@@ -151,10 +147,10 @@ in
 }
 body
 {
-    enforce!NoMenuRunningException(activeTextMenu ! is null,
-                                   "'writeln' requires a running menu " ~
-                                   "from which to write a line");
-    activeTextMenu.writeln(s);
+    if(activeTextMenu is null)
+        stdout.writeln(s);
+    else
+        activeTextMenu.writeln(s);
 }
 
 // TESTS
@@ -165,7 +161,7 @@ version(unittest)
     import test.dli.mock_menu_item;
     import unit_threaded;
 
-    @("requestConfirmation works if called from within MenuItem")
+    @("requestConfirmation works if called from a running ITextMenu")
     unittest
     {
         auto menu = new MockMenu();
@@ -188,17 +184,18 @@ version(unittest)
         assert(!confirmed);
 
         menu.mock_writeln("1");
+        menu.mock_writeln(confirmationAnswer ~ "a"); // Contains confirmation answer, but does not match
+        menu.mock_writeExitRequest();
+        menu.run();
+
+        assert(!confirmed);
+
+        menu.mock_writeln("1");
         menu.mock_writeln(confirmationAnswer);
         menu.mock_writeExitRequest();
         menu.run();
 
         assert(confirmed);
-    }
-
-    @("requestConfirmation throws NoMenuRunningException if called directly")
-    unittest
-    {
-        assertThrown!NoMenuRunningException(requestConfirmation("",""));
     }
 
     static foreach (alias supportedType; requestSupportedTypes)
@@ -372,12 +369,5 @@ version(unittest)
 
         assert(dataValid);
         assert(myInt == 8);
-    }
-
-    @("request throws NoMenuRunningException if called directly")
-    unittest
-    {
-        int dummy;
-        assertThrown!NoMenuRunningException(request("", &dummy));
     }
 }

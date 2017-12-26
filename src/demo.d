@@ -4,6 +4,14 @@ import std.string;
 
 void main()
 {
+	writeln("Welcome to the dli demo.");
+	
+	string username;
+	while(!request("What is your name? ", &username, (string s){return !s.empty;}))
+		writeln("Sorry, but I need your name to proceed");
+
+	writeln("It's a pleasure, " ~ username ~ ".");
+
 	auto mainMenu = createIndexMenu();
 	mainMenu.welcomeMsg = "Welcome to the demo menu. Please, choose an option below:";
 	mainMenu.onExit = {writeln("We hope you enjoyed the demo!");};
