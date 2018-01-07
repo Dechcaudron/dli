@@ -1,6 +1,8 @@
 {
 	"fileVersion": 1,
 	"versions": {
-		"unit-threaded": "0.7.33"
+		"arith-eval": "0.5.0",
+		"pegged": "0.4.2",
+		"unit-threaded": "0.7.35"
 	}
 }

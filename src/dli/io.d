@@ -5,7 +5,7 @@ import std.conv;
 import std.exception;
 import std.meta;
 import std.stdio : stdin, stdout;
-import std.string : chomp;
+import std.string : chomp, format;
 import std.traits;
 
 /** 
@@ -99,9 +99,40 @@ body
         input = activeTextMenu.readln().chomp();
     }
 
+    version(MathExpressionSupport)
+        enum supportMathExpr = true;
+    else
+        enum supportMathExpr = false;
+
     try
     {
-        dataT data = to!dataT(input);
+        dataT data = void;
+        static if (supportMathExpr && isNumeric!dataT)
+        {
+            import arith_eval : Evaluable;
+
+            auto evaluable = Evaluable!()(input);
+            static if (isFloatingPoint!dataT)
+                data = evaluable.eval();
+            else
+            {
+                import std.math : abs, round;
+
+                immutable float floatResult = evaluable.eval();
+                immutable float closestInteger = round(floatResult);
+                enum validThreshold = 0.01f;
+                if (abs(floatResult - closestInteger) <= validThreshold)
+                    data = to!dataT(evaluable.eval());
+                else
+                    throw new Exception(
+                        format("Evaluated input \"%s\" is too far from nearest integer %s " ~
+                               "to be considered a valid integer input.")
+                    );
+            }
+        }
+        else
+            data = to!dataT(input);
+        
         if(restriction(data))
         {
             *dataDestination = data;
@@ -161,6 +192,8 @@ version(unittest)
     import test.dli.mock_menu_item;
     import unit_threaded;
 
+    version = MathExpressionSupport;
+
     @("requestConfirmation works if called from a running ITextMenu")
     unittest
     {
@@ -198,6 +231,9 @@ version(unittest)
         assert(confirmed);
     }
 
+    //enum isValidInput(string input) = false;
+    //enum isValidInput(string input : "a") = true;
+
     static foreach (alias supportedType; requestSupportedTypes)
     {
         @("request works for type " ~ supportedType.stringof)
@@ -216,6 +252,9 @@ version(unittest)
             );
 
             enum supportedTypeIsConvertible(T) = is(supportedType : T);
+
+            enum isValidInput(string input) = false;
+            enum isValidInput(string input : "a") = true;
 
             // The user inputs an ASCII character
             enum charInput = "a";
@@ -285,7 +324,12 @@ version(unittest)
 
             dataValid.shouldEqual(fractionalIsValidInput);
             static if (fractionalIsValidInput)
-                myData.shouldEqual(to!supportedType(fractionalInput));
+            {
+                static if (isSomeString!supportedType)
+                    myData.shouldEqual(to!supportedType(fractionalInput));
+                else static if (isFloatingPoint!supportedType)
+                    myData.shouldApproxEqual(to!supportedType(fractionalInput));
+            }
 
             // The user inputs a positive integer
             enum integerInput = "15";
@@ -314,6 +358,24 @@ version(unittest)
             dataValid.shouldEqual(negativeIntegerIsValidInput);
             static if (negativeIntegerIsValidInput)
                 myData.shouldEqual(to!supportedType(negativeIntegerInput));
+
+            /*
+            // The user inputs an integer-yielding math expression
+            enum integerYieldingMathExp = "4 / 2";
+            menu.mock_writeln("1");
+            menu.mock_writeln(integerYieldingMathExp);
+            menu.mock_writeExitRequest();
+            menu.run();
+
+            bool isValidInput(string input : integerYieldingMathExp)(su)
+            {
+                return isSomeString!supportedType || isNumeric!supportedType;
+            } 
+            
+            dataValid.shouldEqual(isValidInput!integerYieldingMathExp);
+            static if (isValidInput!integerYieldingMathExp)
+                myData.shouldEqual(to!supportedType("2")); // 4 / 2 = 2;
+                */
         }
     }
     
@@ -369,5 +431,43 @@ version(unittest)
 
         assert(dataValid);
         assert(myInt == 8);
+    }
+
+    @("request supports math expressions")
+    unittest
+    {
+        int userInput;
+        bool dataValid;
+        auto menu = new MockMenu();
+
+        menu.addItem(
+            new MenuItem("",
+                {
+                    dataValid = request("", &userInput, (int a){return a % 2 == 0;});
+                }
+            ), 1
+        );
+
+        menu.mock_writeln("1");
+        menu.mock_writeln("asdf");
+        menu.mock_writeExitRequest();
+        menu.run();
+
+        assert(!dataValid);
+
+        menu.mock_writeln("1");
+        menu.mock_writeln("1 + 2"); // Not valid, odd value
+        menu.mock_writeExitRequest();
+        menu.run();
+
+        assert(!dataValid);
+
+        menu.mock_writeln("1");
+        menu.mock_writeln("2 + 2");
+        menu.mock_writeExitRequest();
+        menu.run();
+
+        assert(dataValid);
+        assert(userInput == 4);
     }
 }

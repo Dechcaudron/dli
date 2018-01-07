@@ -10,7 +10,13 @@
 	"configurations": [
 		{
 			"name": "demo",
-			"targetType": "executable"
+			"targetType": "executable",
+			"versions": [
+				"MathExpressionSupport"
+			],
+			"dependencies": {
+				"arith-eval": "~>0.5.0"
+			}
 		},
 		{
 			"name": "unittest",
@@ -24,7 +30,11 @@
 				"src/demo.d"
 			],
 			"dependencies": {
-				"unit-threaded": "~>0.7.11"
+				"unit-threaded": "~>0.7.11",
+				"arith-eval": "~>0.5.0"
+			},
+			"subConfigurations": {
+				"arith-eval": "library"
 			}
 		},
 		{
