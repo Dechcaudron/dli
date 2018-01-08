@@ -6,8 +6,25 @@
 	"description": "A Command Line Interface library for D",
 	"copyright": "Copyright © 2017, Héctor Barreras Almarcha",
 	"license": "GPL-3.0",
-	"targetPath": "bin",
+	"targetPath": "build",
 	"configurations": [
+		{
+			"name": "library",
+			"targetType": "library",
+			"versions": [
+				"MathExpressionSupport"
+			],
+			"dependencies": {
+				"arith-eval": "~>0.5.0"
+			},
+			"subConfigurations": {
+				"arith-eval": "library"
+			}
+		},
+		{
+			"name": "library_lite",
+			"targetType": "library"
+		},
 		{
 			"name": "demo",
 			"targetType": "executable",
@@ -23,23 +40,19 @@
 			"targetType": "executable",
 			"targetName": "tests",
 			"preBuildCommands": [
-				"dub run unit-threaded -c gen_ut_main -- -f bin/ut.d"
+				"dub run unit-threaded -c gen_ut_main -- -f build/ut.d"
 			],
-			"mainSourceFile": "bin/ut.d",
+			"mainSourceFile": "build/ut.d",
 			"excludedSourceFiles": [
 				"src/demo.d"
 			],
 			"dependencies": {
-				"unit-threaded": "~>0.7.11",
+				"unit-threaded": "~>0.7.35",
 				"arith-eval": "~>0.5.0"
 			},
 			"subConfigurations": {
 				"arith-eval": "library"
 			}
-		},
-		{
-			"name": "library",
-			"targetType": "library"
 		}
 	],
 	"homepage": "https://github.com/Dechcaudron/dli"

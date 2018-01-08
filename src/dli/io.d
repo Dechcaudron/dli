@@ -1,3 +1,10 @@
+/**
+    Implements QoL functions to handle user input-output.
+
+    Unless otherwise stated, all methods make use of `stdin` and
+    `stdout` for input and output, respectively, or this thread's
+    running `ITextMenu`, if any.
+*/
 module dli.io;
 
 import dli.text_menu;
@@ -10,8 +17,6 @@ import std.traits;
 
 /** 
     Requests a text confirmation from the user.
-    If the calling thread is running an `ITextMenu`, it will handle
-    the input/output. Otherwise, `stdin` and `stdout` are used.
 
     Returns: whether or not the user input, stripped of line terminators,
              exactly matches requiredAnswer.
@@ -53,9 +58,7 @@ private alias requestSupportedTypes = AliasSeq!(
 
 /**
     Requests data with the possibility of adding restrictions.
-    User input is stripped of the line terminator before conversion is attempted.
-    If an `ITextMenu` is running in the calling thread, it will handle the
-    input/output. Otherwise, `stdin` and `stdout` are used.
+    User input is stripped of the line terminator before processing is attempted.
 
     Params: requestMsg      = message to write out when asking for data.
             dataDestination = pointer where the input data is to be stored,
@@ -147,8 +150,7 @@ body
 }
 
 /**
-    Writes s to the `ITextMenu` currently running in the calling thread,
-    or to `stdout` is none is running.
+    Writes s to the output.
 
     Params: s = string to write.
 */
@@ -166,8 +168,7 @@ body
 }
 
 /**
-    Writes s, plus a line terminator, to the `ITextMenu` currently
-    running in the calling thread, or to `stdout` if none is running.
+    Writes s, plus a line terminator, to the output.
 
     Params: s = string to write.
 */
@@ -231,8 +232,8 @@ version(unittest)
         assert(confirmed);
     }
 
-    //enum isValidInput(string input) = false;
-    //enum isValidInput(string input : "a") = true;
+    enum isValidInput(string input) = false;
+    enum isValidInput(string input : "a") = true;
 
     static foreach (alias supportedType; requestSupportedTypes)
     {
@@ -253,8 +254,8 @@ version(unittest)
 
             enum supportedTypeIsConvertible(T) = is(supportedType : T);
 
-            enum isValidInput(string input) = false;
-            enum isValidInput(string input : "a") = true;
+            //enum isValidInput(string input) = false;
+            //enum isValidInput(string input : "a") = true;
 
             // The user inputs an ASCII character
             enum charInput = "a";
@@ -359,7 +360,7 @@ version(unittest)
             static if (negativeIntegerIsValidInput)
                 myData.shouldEqual(to!supportedType(negativeIntegerInput));
 
-            /*
+            
             // The user inputs an integer-yielding math expression
             enum integerYieldingMathExp = "4 / 2";
             menu.mock_writeln("1");
@@ -367,15 +368,39 @@ version(unittest)
             menu.mock_writeExitRequest();
             menu.run();
 
-            bool isValidInput(string input : integerYieldingMathExp)(su)
-            {
-                return isSomeString!supportedType || isNumeric!supportedType;
-            } 
+            enum integerYieldingMathExpIsValidInput =
+                isSomeString!supportedType ||
+                isNumeric!supportedType;
             
-            dataValid.shouldEqual(isValidInput!integerYieldingMathExp);
-            static if (isValidInput!integerYieldingMathExp)
-                myData.shouldEqual(to!supportedType("2")); // 4 / 2 = 2;
-                */
+            dataValid.shouldEqual(integerYieldingMathExpIsValidInput);
+            static if (integerYieldingMathExpIsValidInput)
+            {
+                static if (isSomeString!supportedType)
+                    myData.shouldEqual(to!supportedType(integerYieldingMathExp));
+                else
+                    myData.shouldEqual(to!supportedType("2")); // 4 / 2 = 2;
+            }
+
+            // The user inputs an integer-yielding math expression
+            enum floatYieldingMathExp = "1 / 3";
+            menu.mock_writeln("1");
+            menu.mock_writeln(floatYieldingMathExp);
+            menu.mock_writeExitRequest();
+            menu.run();
+
+            enum floatYieldingMathExpIsValidInput =
+                isSomeString!supportedType ||
+                isFloatingPoint!supportedType;
+            
+            dataValid.shouldEqual(floatYieldingMathExpIsValidInput);
+            static if (floatYieldingMathExpIsValidInput)
+            {
+                static if (isSomeString!supportedType)
+                    myData.shouldEqual(to!supportedType(floatYieldingMathExp));
+                else
+                    myData.shouldApproxEqual(to!supportedType(1f / 3));
+            }
+                
         }
     }
     
