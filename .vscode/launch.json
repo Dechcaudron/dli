@@ -8,14 +8,14 @@
             "name": "Debug demo app",
             "type": "gdb",
             "request": "launch",
-            "target": "./bin/dli",
+            "target": "./build/dli",
             "cwd": "${workspaceRoot}"
         },
         {
             "name": "Debug tests",
             "type": "gdb",
             "request": "launch",
-            "target": "./bin/tests",
+            "target": "./build/tests",
             "arguments": "-s",
             "cwd": "${workspaceRoot}"
         }
