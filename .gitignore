@@ -1,5 +1,5 @@
 # Results of compilation
-bin/
+build/
 
 # Compiled Object files
 *.o
