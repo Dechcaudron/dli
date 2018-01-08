@@ -115,25 +115,31 @@ body
         dataT data = void;
         static if (supportMathExpr && isNumeric!dataT)
         {
-            import arith_eval : Evaluable;
-
-            auto evaluable = Evaluable!()(input);
-            static if (isFloatingPoint!dataT)
-                data = evaluable.eval();
-            else
+            import std.string : isNumeric;
+            if (input.isNumeric)
+                data = to!dataT(input);
+            else // If the input is not numeric, try to evaluate as a math expression
             {
-                import std.math : abs, round;
+                import arith_eval : Evaluable;
 
-                immutable float floatResult = evaluable.eval();
-                immutable float closestInteger = round(floatResult);
-                enum validThreshold = 0.01f;
-                if (abs(floatResult - closestInteger) <= validThreshold)
-                    data = to!dataT(evaluable.eval());
+                auto evaluable = Evaluable!()(input);
+                static if (isFloatingPoint!dataT)
+                    data = evaluable.eval();
                 else
-                    throw new Exception(
-                        format("Evaluated input \"%s\" is too far from nearest integer %s " ~
-                               "to be considered a valid integer input.")
-                    );
+                {
+                    import std.math : abs, round;
+
+                    immutable float floatResult = evaluable.eval();
+                    immutable float closestInteger = round(floatResult);
+                    enum validThreshold = 0.01f;
+                    if (abs(floatResult - closestInteger) <= validThreshold)
+                        data = to!dataT(evaluable.eval());
+                    else
+                        throw new Exception(
+                            format("Evaluated input \"%s\" is too far from nearest integer %s " ~
+                                "to be considered a valid integer input.")
+                        );
+                }
             }
         }
         else
@@ -415,7 +421,7 @@ version(unittest)
         char inputChar;
         auto item = new MenuItem("",
             {
-                dataValid = request!char("", &inputChar);
+                dataValid = request("", &inputChar);
             }
         );
 
@@ -439,7 +445,7 @@ version(unittest)
         menu.addItem(
             new MenuItem("",
                          {
-                             dataValid = request!int("", &myInt, (int a){return a % 2 == 0;}); // Only accepts even integers
+                             dataValid = request("", &myInt, (int a){return a % 2 == 0;}); // Only accepts even integers
                          }
                         ),
             1
