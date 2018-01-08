@@ -5,7 +5,7 @@
 	],
 	"description": "A Command Line Interface library for D",
 	"copyright": "Copyright © 2017, Héctor Barreras Almarcha",
-	"license": "GPL-3.0",
+	"license": "MIT",
 	"targetPath": "build",
 	"configurations": [
 		{
@@ -15,7 +15,7 @@
 				"MathExpressionSupport"
 			],
 			"dependencies": {
-				"arith-eval": "~>0.5.0"
+				"arith-eval": "~>0.5.1"
 			},
 			"subConfigurations": {
 				"arith-eval": "library"
@@ -48,7 +48,7 @@
 			],
 			"dependencies": {
 				"unit-threaded": "~>0.7.35",
-				"arith-eval": "~>0.5.0"
+				"arith-eval": "~>0.5.1"
 			},
 			"subConfigurations": {
 				"arith-eval": "library"
