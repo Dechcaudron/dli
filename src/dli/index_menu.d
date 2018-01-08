@@ -1,23 +1,25 @@
+///
 module dli.index_menu;
 
 import dli.text_menu;
-import dli.exceptions.invalid_item_exception;
+import dli.exceptions;
 import std.conv;
 import std.exception;
 import std.stdio;
 import std.typecons : Tuple, tuple;
 
-
-
+///
 public class IndexMenu(inputStreamT, outputStreamT) : TextMenu!(inputStreamT, outputStreamT, size_t)
 {
     private size_t highestMenuItemIndex;
 
+    ///
     public this(inputStreamT inputStream, outputStreamT outputStream)
     {
         super(inputStream, outputStream);
     }
 
+    ///
     public override void addItem(MenuItem item, size_t key)
     {
         super.addItem(item, key);
@@ -58,11 +60,13 @@ public class IndexMenu(inputStreamT, outputStreamT) : TextMenu!(inputStreamT, ou
     }
 }
 
+///
 public auto createIndexMenu(File inStream = stdin, File outStream = stdout)
 {
     return new IndexMenu!(File, File)(inStream, outStream);
 }
 
+///
 public auto createIndexMenu(inputStreamT, outputStreamT)(inputStreamT inStream, outputStreamT outStream)
 {
     return new IndexMenu!(inputStreamT, outputStreamT)(inStream, outStream);

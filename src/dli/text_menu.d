@@ -1,9 +1,8 @@
+///
 module dli.text_menu;
 
 import dli.display_scenario;
-import dli.exceptions.invalid_item_exception;
-import dli.exceptions.invalid_menu_status_exception;
-import dli.exceptions.invalid_key_exception;
+import dli.exceptions;
 import dli.io : request;
 import dli.i_text_menu;
 import dli.internal.lifo;
@@ -33,11 +32,11 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
 
     protected MenuItem[keyT] menuItems;
 
-    private string _welcomeMsg = "Please, select an option:"; // Welcome message for this menu
-    private DisplayScenario _welcomeMsgDisplayScenario; // Scenario when the welcome message should be displayed
+    private string _welcomeMsg = "Please, select an option:"; /// Welcome message for this menu
+    private DisplayScenario _welcomeMsgDisplayScenario; /// Scenario when the welcome message should be displayed
 
-    private string _promptMsg = "> "; // String to be printed before asking the user for input
-    private string _onItemExecutedMsg = "\n"; // String to be printed after any menu item is executed. Generally, you will want this to be EOL.
+    private string _promptMsg = "> "; /// String to be printed before asking the user for input
+    private string _onItemExecutedMsg = "\n"; /// String to be printed after any menu item is executed. Generally, you will want this to be EOL.
     private void delegate() _onStart; /// Delegate to be called when the menu starts running;
     private void delegate() _onExit; /// Delegate to be called when the menu exits
     private string _onInvalidItemSelectedMsg = "Please, select a valid item from the list.";
@@ -76,7 +75,7 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
     {
         assert(item !is null);
     }
-    body
+    do
     {
         enforce!InvalidKeyException(key !in menuItems,
             format("Tried to call addItem with key %s, but it is already in use.", key));
@@ -241,7 +240,7 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
     {
         assert(fieldName[0] == '_');
     }
-    body
+    do
     {
         import std.uni : toUpper;
 
@@ -321,11 +320,8 @@ public class MenuItem
     {
         assert(textMenu !is null);
     }
-    body
+    do
     {
-        import dli.exceptions.item_bound_exception : ItemBoundException;
-        import std.string : format;
-
         enforce!ItemBoundException(this.textMenu is null, 
                                    format("Cannot bind MenuItem %s to %s. It is already bound to %s",
                                    this, textMenu, this.textMenu));
@@ -428,7 +424,6 @@ version(unittest)
     unittest
     {
         import std.exception : assertThrown;
-        import dli.exceptions.item_bound_exception : ItemBoundException;
 
         auto menu1 = new TextMenuTestImplementation();
         auto menu2 = new TextMenuTestImplementation();
