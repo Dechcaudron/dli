@@ -4,6 +4,7 @@ import dli.display_scenario;
 import dli.exceptions.invalid_item_exception;
 import dli.exceptions.invalid_menu_status_exception;
 import dli.exceptions.invalid_key_exception;
+import dli.io : request;
 import dli.i_text_menu;
 import dli.internal.lifo;
 
@@ -117,10 +118,13 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
             {
                 printWelcomeMsg();
                 printEnabledItems();
-                write(_promptMsg);
                 try
                 {
-                    awaitAndExecuteUserInteraction();
+                    keyT selectedItemKey;
+                    if(request(_promptMsg, &selectedItemKey))
+                        tryExecuteItem(selectedItemKey);
+                    else
+                        throw new InvalidItemException("The user input was not convertible to a key.");
                 }
                 catch(InvalidItemException e)
                 {
@@ -185,29 +189,11 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
                 printItem(to!string(itemTuple[0]), itemTuple[1].displayString);
     }
 
-    private void awaitAndExecuteUserInteraction()
+    private void tryExecuteItem(keyT key)
     {
-        import std.string : strip;
-        import std.format : format;
-
-        // Note that we are calling strip here to remove the EOL chars, but at some point we may want to allow
-        // someone to type leading or trailing whitespaces which they don't want removed. This will do for now.
-        string cleansedUserInput = readln().strip();
-        keyT menuItemKey;
-        try
-        {
-            menuItemKey = to!keyT(cleansedUserInput);
-        }
-        catch(ConvException e)
-        {
-            // TODO: throw an InvalidInputException?
-            throw new InvalidItemException(format!("Cannot convert user input '%s' " ~
-                "into key type %s")(cleansedUserInput, keyT.stringof));
-        }
-        
-        MenuItem menuItem = getMenuItem(menuItemKey);
+        MenuItem menuItem = getMenuItem(key);
         enforce!InvalidItemException(menuItem.enabled, format!("User tried to select disabled " ~
-                "menu item with key %s")(menuItemKey));
+                "menu item with key %s")(key));
         
         menuItem.execute();
     }
@@ -401,18 +387,17 @@ version(unittest)
         bool onStartCallbackExecuted;
         bool onExitCallbackExecuted;
 
-        menu.onStart = {onStartCallbackExecuted = true;};
+        menu.onStart = {
+            onStartCallbackExecuted = true; 
+            assert(!onExitCallbackExecuted);
+        };
         menu.onExit = {onExitCallbackExecuted = true;};
         
-        // TODO: check in the middle of menu execution that onStart
-        // has executed and onExit has not
-
         inputStream.appendLine(to!string(TextMenuTestImplementation.exitItemKey));
         menu.run();
 
         assert(onStartCallbackExecuted);
         assert(onExitCallbackExecuted);
-
     }
 
     @("TextMenu does not allow two items to be added with the same key")
