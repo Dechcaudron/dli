@@ -102,6 +102,9 @@ body
         input = activeTextMenu.readln().chomp();
     }
 
+    if (input is null)
+        return false;
+
     version(MathExpressionSupport)
         enum supportMathExpr = true;
     else
