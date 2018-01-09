@@ -1,3 +1,7 @@
+/+ dub.sdl:
+   name "dli_demo"
+   dependency "dli" path="../"
++/
 import dli;
 
 import std.string;
