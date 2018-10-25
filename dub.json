@@ -7,6 +7,9 @@
 	"copyright": "Copyright © 2017, Héctor Barreras Almarcha",
 	"license": "MIT",
 	"targetPath": "build",
+	"dependencies": {
+		"unit-threaded": "~>0.7.35"
+	},
 	"configurations": [
 		{
 			"name": "library",
@@ -47,7 +50,6 @@
 				"src/demo.d"
 			],
 			"dependencies": {
-				"unit-threaded": "~>0.7.35",
 				"arith-eval": "~>0.5.1"
 			},
 			"subConfigurations": {
