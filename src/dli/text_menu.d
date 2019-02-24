@@ -32,6 +32,8 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
 
     protected MenuItem[keyT] menuItems;
 
+    protected string _exitItemText = "Exit";
+
     private string _welcomeMsg = "Please, select an option:"; /// Welcome message for this menu
     private DisplayScenario _welcomeMsgDisplayScenario; /// Scenario when the welcome message should be displayed
 
@@ -56,6 +58,7 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
     mixin(generateMenuCustomizingSetter!(void delegate())(__traits(identifier, _onExit)));
     mixin(generateMenuCustomizingSetter!string(__traits(identifier, _onInvalidItemSelectedMsg)));
     mixin(generateMenuCustomizingSetter!string(__traits(identifier, _itemPrintFormat)));
+    mixin(generateMenuCustomizingSetter!string(__traits(identifier, _exitItemText)));
 
     /// Removes the menu item associated with key. If no item was associated with such key, nothing happens.
     public final void removeItem(keyT key)
@@ -105,7 +108,7 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
 
             /* Before actually starting the menu, we need to provide the user with a way to
                exit the menu. We create an ad hoc MenuItem for this purpose and add it here */
-            addExitMenuItem(new MenuItem("Exit", 
+            addExitMenuItem(new MenuItem(_exitItemText, 
                 {
                     _status = Status.Stopping;
                 }
