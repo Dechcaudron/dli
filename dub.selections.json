@@ -2,7 +2,7 @@
 	"fileVersion": 1,
 	"versions": {
 		"arith-eval": "0.5.1",
-		"pegged": "0.4.2",
-		"unit-threaded": "0.7.36"
+		"pegged": "0.4.4",
+		"unit-threaded": "0.7.55"
 	}
 }
