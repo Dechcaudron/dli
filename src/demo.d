@@ -92,10 +92,27 @@ void main()
 			)
 		);
 
+		nestedMenu.exitMenuItemDisplayString = "Exit this nested menu";
+
 		mainMenu.addItem(
 			new NestedMenuMenuItem(nestedMenu, "Open input demo nested menu")
 		);
 	}
+
+	bool topLevelExitEnabled = true;
+	mainMenu.addItem(
+		new MenuItem(
+			"Enable/disable the item to exit this menu",
+			{
+				topLevelExitEnabled = !topLevelExitEnabled;
+				mainMenu.exitMenuItemEnabled = topLevelExitEnabled;
+				writeln(topLevelExitEnabled ? 
+					"Exit menu item enabled. But you really don't have to leave!" :
+					"Exit menu item disabled. Now you belong here forever! >:D"
+				);
+			}
+		)
+	);
 	
 	mainMenu.run();
 }

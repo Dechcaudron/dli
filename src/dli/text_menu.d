@@ -44,6 +44,7 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
     private string _onInvalidItemSelectedMsg = "Please, select a valid item from the list.";
     private string _itemPrintFormat = PrintItemKeyKeyword ~ " - " ~ PrintItemTextKeyword; /// Stores the format in which menu items are printed to the output stream
     private Status _status = Status.Stopped;
+	private MenuItem exitMenuItem; 
 
     @property
     protected Status status()
@@ -108,11 +109,7 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
 
             /* Before actually starting the menu, we need to provide the user with a way to
                exit the menu. We create an ad hoc MenuItem for this purpose and add it here */
-            addExitMenuItem(new MenuItem(_exitItemText, 
-                {
-                    _status = Status.Stopping;
-                }
-            ));
+            addExitMenuItem(exitMenuItem);
 
             _status = Status.Running;
 
@@ -148,6 +145,26 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
         }
     }
 
+	/// Set the text of the menu item that will make it possible to exit this menu instance.
+	public void exitMenuItemDisplayString(string displayString)
+	in
+	{
+		// Aside from internal implementation details, it does not sound like a good idea
+		// to change the display string of an item while the menu is running, since it is bound
+		// to confuse the user.
+		assert(_status == Status.Stopped);
+	}
+	do
+	{
+		exitMenuItem = new MenuItem(displayString, {_status = Status.Stopping;});
+	}
+
+	/// Enables/disabled the menu item to leave this `TextMenu` instance.
+	public void exitMenuItemEnabled(bool enabled)
+	{
+		exitMenuItem.enabled = enabled;
+	}
+
     public override final void writeln(string s)
     {
         outputStream.writeln(s);
@@ -167,13 +184,20 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
     {
         this.inputStream = inputStream;
         this.outputStream = outputStream;   
+		initializeExitMenuItem();
     }
 
     protected this(textMenuT)(textMenuT streamSource)
     {
         this.inputStream = streamSource.inputStream;
         this.outputStream = streamSource.outputStream;
+		initializeExitMenuItem();
     }
+
+	private void initializeExitMenuItem()
+	{
+		exitMenuItemDisplayString = "Exit";
+	}
 
     private void printEnabledItems()
     {
