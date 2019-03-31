@@ -96,7 +96,7 @@ public abstract class TextMenu(inputStreamT, outputStreamT, keyT) : ITextMenu
     public override final void run()
     {
         enforce!InvalidMenuStatusException(_status == Status.Stopped,
-         "run may not be called while the menu is running.");
+         "`void run()` may not be called while the menu is running.");
 
         try
         {
